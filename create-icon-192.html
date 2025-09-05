@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create 192x192 Icon</title>
+</head>
+<body>
+    <canvas id="canvas" width="192" height="192"></canvas>
+    <br>
+    <a id="download" download="icon-192x192.png">Download 192x192 Icon</a>
+    
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Background circle with gradient
+        const gradient = ctx.createLinearGradient(0, 0, 192, 192);
+        gradient.addColorStop(0, '#6366f1');
+        gradient.addColorStop(1, '#8b5cf6');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(96, 96, 86, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // White border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        
+        // Inner white circle
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(96, 96, 66, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Metronome pendulum
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(96, 48);
+        ctx.lineTo(96, 144);
+        ctx.stroke();
+        
+        // Pendulum weight
+        ctx.fillStyle = '#6366f1';
+        ctx.beginPath();
+        ctx.arc(96, 144, 16, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Musical note
+        ctx.fillStyle = '#6366f1';
+        ctx.font = 'bold 48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('♪', 96, 72);
+        
+        // Set up download
+        const downloadLink = document.getElementById('download');
+        downloadLink.href = canvas.toDataURL('image/png');
+    </script>
+</body>
+</html>

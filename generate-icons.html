@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+</head>
+<body>
+    <canvas id="canvas" width="512" height="512"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function drawIcon(size) {
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background circle
+            ctx.fillStyle = '#6366f1';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - 10, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Inner circle
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2, size/2 - 30, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Metronome pendulum
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = size/20;
+            ctx.beginPath();
+            ctx.moveTo(size/2, size/2 - size/4);
+            ctx.lineTo(size/2, size/2 + size/4);
+            ctx.stroke();
+            
+            // Pendulum weight
+            ctx.fillStyle = '#6366f1';
+            ctx.beginPath();
+            ctx.arc(size/2, size/2 + size/4, size/12, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Musical note
+            ctx.fillStyle = '#6366f1';
+            ctx.font = `bold ${size/4}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('♪', size/2, size/2 - size/8);
+        }
+        
+        sizes.forEach(size => {
+            drawIcon(size);
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL();
+            link.textContent = `Download ${size}x${size}`;
+            link.style.display = 'block';
+            link.style.margin = '10px';
+            document.body.appendChild(link);
+        });
+    </script>
+</body>
+</html>
