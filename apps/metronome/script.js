@@ -8,10 +8,10 @@ class Metronome {
         this.audioContext = null;
         this.tickSound = null;
         this.accentSound = null;
+        this.audioInitialized = false;
 
         this.initializeElements();
         this.setupEventListeners();
-        this.initializeAudio();
     }
 
     initializeElements() {
@@ -42,11 +42,13 @@ class Metronome {
         });
 
         // Playback controls
-        this.playBtn.addEventListener('click', () => {
+        this.playBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             this.togglePlayback();
         });
 
-        this.resetBtn.addEventListener('click', () => {
+        this.resetBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             this.reset();
         });
 
@@ -59,6 +61,7 @@ class Metronome {
         // Preset buttons
         this.presetButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const bpm = parseInt(e.target.dataset.bpm);
                 this.setBPM(bpm);
             });
@@ -94,11 +97,20 @@ class Metronome {
     }
 
     async initializeAudio() {
+        if (this.audioInitialized) return;
+
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Handle mobile browsers - suspend state
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
+
             await this.createSounds();
+            this.audioInitialized = true;
         } catch (error) {
-            console.warn('Audio context not supported:', error);
+            console.error('Audio initialization failed:', error);
         }
     }
 
@@ -116,20 +128,24 @@ class Metronome {
         return () => {
             if (!this.audioContext) return;
 
-            const oscillator = this.audioContext.createOscillator();
-            const gainNode = this.audioContext.createGain();
+            try {
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
 
-            oscillator.connect(gainNode);
-            gainNode.connect(this.audioContext.destination);
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
 
-            oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-            oscillator.type = type;
+                oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
+                oscillator.type = type;
 
-            gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+                gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
 
-            oscillator.start(this.audioContext.currentTime);
-            oscillator.stop(this.audioContext.currentTime + duration);
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration);
+            } catch (e) {
+                console.error('Error playing sound:', e);
+            }
         };
     }
 
@@ -144,20 +160,27 @@ class Metronome {
         }
     }
 
-    togglePlayback() {
+    async togglePlayback() {
         if (this.isPlaying) {
             this.stop();
         } else {
-            this.start();
+            await this.start();
         }
     }
 
-    start() {
+    async start() {
         if (this.isPlaying) return;
+
+        // Initialize audio on first user interaction (required for mobile)
+        await this.initializeAudio();
 
         // Resume audio context if suspended (browser autoplay policy)
         if (this.audioContext && this.audioContext.state === 'suspended') {
-            this.audioContext.resume();
+            try {
+                await this.audioContext.resume();
+            } catch (e) {
+                console.error('Failed to resume audio context:', e);
+            }
         }
 
         this.isPlaying = true;
@@ -255,17 +278,4 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
         });
     }
-});
-
-// Handle app installation
-let deferredPrompt;
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-});
-
-// Handle app installed
-window.addEventListener('appinstalled', (evt) => {
-    console.log('App was installed.');
 });

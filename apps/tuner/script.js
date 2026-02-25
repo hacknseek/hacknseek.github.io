@@ -58,13 +58,31 @@ class Tuner {
 
     async start() {
         try {
+            // Resume audio context if suspended (required for some browsers)
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            if (this.audioContext.state === 'suspended') {
+                await this.audioContext.resume();
+            }
 
+            // Request microphone access
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Check if we actually got audio tracks
+            if (!stream || stream.getAudioTracks().length === 0) {
+                throw new Error('No audio tracks available');
+            }
+
+            // Check if microphone is actually enabled
+            const audioTrack = stream.getAudioTracks()[0];
+            if (audioTrack.readyState === 'ended' || audioTrack.muted) {
+                throw new Error('Microphone is not available');
+            }
+
             this.microphone = this.audioContext.createMediaStreamSource(stream);
 
             this.analyser = this.audioContext.createAnalyser();
             this.analyser.fftSize = 2048;
+            this.analyser.smoothingTimeConstant = 0.8;
             this.microphone.connect(this.analyser);
 
             this.bufferLength = this.analyser.fftSize;
@@ -75,11 +93,45 @@ class Tuner {
             this.startBtn.classList.add('active');
             this.errorMessage.classList.remove('show');
 
+            // Listen for track errors
+            audioTrack.addEventListener('ended', () => {
+                this.stop();
+                this.showError('Microphone disconnected. Please allow microphone access and try again.');
+            });
+
+            audioTrack.addEventListener('mute', () => {
+                this.showError('Microphone is muted. Please unmute and try again.');
+            });
+
             this.detectPitch();
         } catch (error) {
             console.error('Microphone access error:', error);
-            this.errorMessage.classList.add('show');
+            this.handleMicError(error);
         }
+    }
+
+    handleMicError(error) {
+        let message = 'Unable to access microphone. ';
+
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            message = 'Microphone access denied. Please allow microphone access in your browser settings and try again.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+            message = 'No microphone found. Please connect a microphone and try again.';
+        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+            message = 'Microphone is in use by another application. Please close other apps using the microphone.';
+        } else if (error.name === 'NotSupportedError') {
+            message = 'Microphone access is not supported in this browser.';
+        } else {
+            message += 'Please check your browser permissions and try again.';
+        }
+
+        this.errorMessage.textContent = message;
+        this.errorMessage.classList.add('show');
+    }
+
+    showError(message) {
+        this.errorMessage.textContent = message;
+        this.errorMessage.classList.add('show');
     }
 
     stop() {
