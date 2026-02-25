@@ -1,31 +1,32 @@
-# Metronome PWA
+# HackNSeek Web Apps
 
-A progressive web app metronome for musicians with offline support and modern UI.
+A collection of useful progressive web apps for musicians and more, with offline support.
 
-## Features
+## Apps
 
-- 🎵 **Accurate Metronome**: BPM range from 40-200 with precise timing
-- 🎼 **Multiple Time Signatures**: 4/4, 3/4, 2/4, and 6/8 time signatures
-- 🔊 **Audio Feedback**: High-quality tick and accent sounds
-- 👁️ **Visual Indicators**: Animated beat indicator and dot visualization
-- 📱 **PWA Support**: Installable on mobile and desktop devices
-- 🌐 **Offline Functionality**: Works without internet connection
-- ⌨️ **Keyboard Shortcuts**: Space to play/pause, arrows to adjust BPM
-- 🎨 **Modern UI**: Responsive design with glassmorphism effects
+### 🎵 Metronome
+Keep the beat with adjustable BPM (40-200) and multiple time signatures (4/4, 3/4, 2/4, 6/8).
+
+**Features:**
+- Accurate timing with visual and audio feedback
+- Tempo presets (Largo, Andante, Moderato, Allegro, Presto)
+- Keyboard shortcuts (Space to play/pause, arrows to adjust BPM)
+- Works offline
+
+### ⏱️ Timer (Coming Soon)
+Countdown and interval timer
+
+### 🎹 Tuner (Coming Soon)
+Instrument tuner with chromatic support
+
+### 📐 Tap Tempo (Coming Soon)
+BPM tap tempo detector
 
 ## Usage
 
 1. Open `index.html` in a web browser
-2. Adjust BPM using the slider or +/- buttons
-3. Select your desired time signature
-4. Click the play button or press spacebar to start
-5. Tap anywhere on the screen to toggle playback
-
-### Keyboard Shortcuts
-
-- **Space**: Play/Pause metronome
-- **↑/↓**: Increase/Decrease BPM by 5
-- **Escape**: Stop metronome
+2. Click on an app card to launch it
+3. For full PWA features (offline support, install), serve from a web server
 
 ## Installation
 
@@ -41,35 +42,31 @@ A progressive web app metronome for musicians with offline support and modern UI
 2. Serve the files from a web server (required for PWA features)
 3. Open in your browser
 
-## Browser Support
-
-- Chrome 68+
-- Firefox 60+
-- Safari 11.1+
-- Edge 79+
-
 ## Development
 
-To modify or extend the metronome:
+To add a new app:
 
-1. Edit `script.js` for functionality changes
-2. Edit `styles.css` for visual modifications
-3. Update `manifest.json` for PWA configuration
-4. Modify `sw.js` for service worker behavior
+1. Create a new folder in `apps/`
+2. Add your app's HTML, CSS, and JS files
+3. Add an app card to `index.html`
+4. Update `sw.js` to cache the new files
 
 ## File Structure
 
 ```
-metronome-pwa/
-├── index.html          # Main HTML file
-├── styles.css          # CSS styling
-├── script.js           # JavaScript functionality
+hacknseek/
+├── index.html          # App hub / landing page
+├── styles.css          # Shared CSS styling
+├── script.js           # Hub page JavaScript
 ├── manifest.json       # PWA manifest
 ├── sw.js              # Service worker
-├── icons/             # App icons (various sizes)
-└── README.md          # This file
+├── icons/             # App icons
+└── apps/
+    └── metronome/     # Metronome app
+        ├── index.html
+        └── script.js
 ```
 
 ## License
 
-This project is open source and available under the MIT License.
+MIT License
