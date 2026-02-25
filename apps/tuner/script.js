@@ -45,18 +45,25 @@ class Tuner {
     async start() {
         try {
             this.errorMessage.classList.remove('show');
+            console.log('1. Creating AudioContext...');
 
             // Create audio context
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContextClass();
+            console.log('2. AudioContext state:', this.audioContext.state);
 
             // Resume if suspended
             if (this.audioContext.state === 'suspended') {
+                console.log('3. Resuming AudioContext...');
                 await this.audioContext.resume();
+                console.log('4. Resumed, new state:', this.audioContext.state);
             }
 
             // Request mic
+            console.log('5. Requesting microphone...');
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('6. Got stream:', stream);
+            console.log('7. Audio tracks:', stream.getAudioTracks());
 
             if (!stream) {
                 throw new Error('No stream received');
@@ -66,6 +73,8 @@ class Tuner {
             if (!tracks || tracks.length === 0) {
                 throw new Error('No audio tracks');
             }
+
+            console.log('8. Setting up analyser...');
 
             // Set up analyser
             this.microphone = this.audioContext.createMediaStreamSource(stream);
@@ -77,6 +86,8 @@ class Tuner {
             this.bufferLength = this.analyser.fftSize;
             this.dataArray = new Float32Array(this.bufferLength);
 
+            console.log('9. Starting tuner...');
+
             this.isRunning = true;
             this.startBtn.textContent = 'Stop Tuner';
             this.startBtn.classList.add('active');
@@ -84,9 +95,11 @@ class Tuner {
             // Start detection
             this.detectPitch();
 
+            console.log('10. Tuner started successfully!');
+
         } catch (err) {
-            console.error('Tuner error:', err);
-            this.showError(err.message || 'Unknown error');
+            console.error('Tuner error at step:', err);
+            this.showError(err.message || 'Unknown error: ' + err.toString());
         }
     }
 
