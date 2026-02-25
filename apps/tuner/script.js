@@ -117,22 +117,25 @@ class Tuner {
     }
 
     handleMicError(error) {
-        console.log('Full error object:', error);
-        console.log('Error name:', error.name);
-        console.log('Error message:', error.message);
+        console.log('Full error:', error);
+
+        const errorName = error?.name || '';
+        const errorMessage = error?.message || '';
 
         let message = 'Unable to access microphone. ';
 
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
             message = 'Microphone access denied. Please allow microphone access in your browser settings and try again.';
-        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
             message = 'No microphone found. Please connect a microphone and try again.';
-        } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
             message = 'Microphone is in use by another application. Please close other apps using the microphone.';
-        } else if (error.name === 'NotSupportedError') {
+        } else if (errorName === 'NotSupportedError') {
             message = 'Microphone access is not supported in this browser.';
+        } else if (errorMessage) {
+            message = `Error: ${errorMessage}`;
         } else {
-            message = `Error: ${error.message || error.name}. Please check your browser permissions and try again.`;
+            message = 'Unable to access microphone. Please check your browser permissions and try again.';
         }
 
         this.errorMessage.textContent = message;
@@ -169,18 +172,22 @@ class Tuner {
     detectPitch() {
         if (!this.isRunning) return;
 
-        this.analyser.getFloatTimeDomainData(this.dataArray);
-        const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
+        try {
+            this.analyser.getFloatTimeDomainData(this.dataArray);
+            const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
 
-        if (frequency === -1) {
-            // No clear pitch detected
-            this.noteName.textContent = '--';
-            this.frequency.textContent = '0 Hz';
-            this.meterNeedle.style.left = '50%';
-            this.centsDisplay.textContent = '0 cents';
-            this.centsDisplay.className = 'cents-display';
-        } else {
-            this.updateDisplay(frequency);
+            if (frequency === -1 || frequency < 20 || frequency > 5000) {
+                // No clear pitch detected or out of reasonable range
+                this.noteName.textContent = '--';
+                this.frequency.textContent = '0 Hz';
+                this.meterNeedle.style.left = '50%';
+                this.centsDisplay.textContent = '0 cents';
+                this.centsDisplay.className = 'cents-display';
+            } else {
+                this.updateDisplay(frequency);
+            }
+        } catch (e) {
+            console.error('Pitch detection error:', e);
         }
 
         requestAnimationFrame(() => this.detectPitch());
@@ -255,6 +262,11 @@ class Tuner {
     }
 
     frequencyToNote(frequency) {
+        // Validate frequency
+        if (!frequency || !isFinite(frequency) || frequency < 20 || frequency > 20000) {
+            return { note: '--', sharp: false, cents: 0 };
+        }
+
         // Calculate the number of semitones from A4
         const semitones = 12 * Math.log2(frequency / this.a4Frequency);
         const roundedSemitones = Math.round(semitones);
@@ -265,11 +277,18 @@ class Tuner {
         // Calculate the note name
         const noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
         const octave = Math.floor((roundedSemitones + 9) / 12) + 4;
-        const noteIndex = ((roundedSemitones % 12) + 12) % 12;
+        let noteIndex = ((roundedSemitones % 12) + 12) % 12;
+
+        // Ensure noteIndex is valid
+        if (noteIndex < 0 || noteIndex >= noteNames.length) {
+            noteIndex = 0;
+        }
+
+        const noteName = noteNames[noteIndex] || 'A';
 
         return {
-            note: noteNames[noteIndex] + octave,
-            sharp: noteNames[noteIndex].includes('#'),
+            note: noteName + octave,
+            sharp: noteName.includes('#'),
             cents: cents
         };
     }
