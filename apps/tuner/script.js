@@ -60,12 +60,18 @@ class Tuner {
         try {
             // Resume audio context if suspended (required for some browsers)
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            console.log('AudioContext created, state:', this.audioContext.state);
+
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
+                console.log('AudioContext resumed');
             }
 
             // Request microphone access
+            console.log('Requesting microphone access...');
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log('Got stream:', stream);
+            console.log('Audio tracks:', stream.getAudioTracks());
 
             // Check if we actually got audio tracks
             if (!stream || stream.getAudioTracks().length === 0) {
@@ -111,6 +117,10 @@ class Tuner {
     }
 
     handleMicError(error) {
+        console.log('Full error object:', error);
+        console.log('Error name:', error.name);
+        console.log('Error message:', error.message);
+
         let message = 'Unable to access microphone. ';
 
         if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
@@ -122,7 +132,7 @@ class Tuner {
         } else if (error.name === 'NotSupportedError') {
             message = 'Microphone access is not supported in this browser.';
         } else {
-            message += 'Please check your browser permissions and try again.';
+            message = `Error: ${error.message || error.name}. Please check your browser permissions and try again.`;
         }
 
         this.errorMessage.textContent = message;
