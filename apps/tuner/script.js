@@ -202,30 +202,23 @@ class Tuner {
 
         let bestOffset = -1;
         let bestCorrelation = 0;
-        let foundGoodCorrelation = false;
-        const correlations = new Array(maxSamples);
 
-        for (let offset = 0; offset < maxSamples; offset++) {
+        // Find best correlation offset
+        for (let offset = 1; offset < maxSamples; offset++) {
             let correlation = 0;
             for (let i = 0; i < maxSamples; i++) {
                 correlation += Math.abs(buffer[i] - buffer[i + offset]);
             }
             correlation = 1 - (correlation / maxSamples);
-            correlations[offset] = correlation;
 
-            // Lower threshold for better detection
-            if (correlation > 0.5 && correlation > bestCorrelation) {
+            if (correlation > bestCorrelation) {
                 bestCorrelation = correlation;
                 bestOffset = offset;
-                foundGoodCorrelation = true;
-            } else if (foundGoodCorrelation && correlation < bestCorrelation - 0.1) {
-                // Found peak, now falling - estimate frequency
-                const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
-                return sampleRate / (bestOffset + (8 * shift));
             }
         }
 
-        if (bestCorrelation > 0.1) {
+        // Only return valid frequency if correlation is strong enough
+        if (bestCorrelation > 0.5 && bestOffset > 0) {
             return sampleRate / bestOffset;
         }
 
