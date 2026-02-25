@@ -195,19 +195,33 @@ class Tuner {
     }
 
     updateDisplay(frequency) {
+        if (!frequency || !isFinite(frequency)) {
+            this.clearDisplay();
+            return;
+        }
+
         // Calculate note
         const semitones = 12 * Math.log2(frequency / this.a4Frequency);
         const roundedSemitones = Math.round(semitones);
         const cents = Math.round((semitones - roundedSemitones) * 100);
 
         // Calculate note name
-        const noteIndex = ((roundedSemitones % 12) + 12) % 12;
+        let noteIndex = ((roundedSemitones % 12) + 12) % 12;
         const octave = Math.floor((roundedSemitones + 9) / 12) + 4;
-        const noteName = this.noteNames[noteIndex] || 'A';
+
+        // Defensive: ensure valid index
+        if (noteIndex < 0 || noteIndex >= this.noteNames.length) {
+            noteIndex = 0;
+        }
+
+        let noteName = this.noteNames[noteIndex];
+        if (!noteName) {
+            noteName = 'A';
+        }
 
         // Update UI
         this.noteName.textContent = noteName + octave;
-        this.noteName.classList.toggle('sharp', noteName.includes('#'));
+        this.noteName.classList.toggle('sharp', noteName && noteName.includes('#'));
 
         this.frequency.textContent = frequency.toFixed(1) + ' Hz';
         this.centsDisplay.textContent = (cents > 0 ? '+' : '') + cents + ' cents';
