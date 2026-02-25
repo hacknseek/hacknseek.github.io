@@ -143,19 +143,28 @@ class Tuner {
 
             // Calculate volume (RMS)
             let sum = 0;
+            let maxSample = 0;
             for (let i = 0; i < this.dataArray.length; i++) {
+                const absVal = Math.abs(this.dataArray[i]);
                 sum += this.dataArray[i] * this.dataArray[i];
+                if (absVal > maxSample) maxSample = absVal;
             }
             const rms = Math.sqrt(sum / this.dataArray.length);
-            const volumePercent = Math.min(100, rms * 500);
+            const volumePercent = Math.min(100, rms * 300);
             this.volumeBar.style.width = volumePercent + '%';
 
-            const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
+            console.log('Volume RMS:', rms.toFixed(4), 'Max:', maxSample.toFixed(4));
 
-            console.log('Volume:', rms, 'Frequency:', frequency);
+            // Only try pitch detection if there's enough volume
+            if (rms > 0.01) {
+                const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
+                console.log('Detected frequency:', frequency);
 
-            if (frequency > 50 && frequency < 5000) {
-                this.updateDisplay(frequency);
+                if (frequency > 20 && frequency < 10000) {
+                    this.updateDisplay(frequency);
+                } else {
+                    this.clearDisplay();
+                }
             } else {
                 this.clearDisplay();
             }
@@ -178,6 +187,19 @@ class Tuner {
     autoCorrelate(buffer, sampleRate) {
         const size = buffer.length;
         const maxSamples = Math.floor(size / 2);
+
+        // Find the RMS first to check if there's signal
+        let sum = 0;
+        for (let i = 0; i < size; i++) {
+            sum += buffer[i] * buffer[i];
+        }
+        const rms = Math.sqrt(sum / size);
+
+        // If signal is too weak, return -1
+        if (rms < 0.01) {
+            return -1;
+        }
+
         let bestOffset = -1;
         let bestCorrelation = 0;
         let foundGoodCorrelation = false;
@@ -191,17 +213,19 @@ class Tuner {
             correlation = 1 - (correlation / maxSamples);
             correlations[offset] = correlation;
 
-            if (correlation > 0.9 && correlation > bestCorrelation) {
+            // Lower threshold for better detection
+            if (correlation > 0.5 && correlation > bestCorrelation) {
                 bestCorrelation = correlation;
                 bestOffset = offset;
                 foundGoodCorrelation = true;
-            } else if (foundGoodCorrelation) {
+            } else if (foundGoodCorrelation && correlation < bestCorrelation - 0.1) {
+                // Found peak, now falling - estimate frequency
                 const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
                 return sampleRate / (bestOffset + (8 * shift));
             }
         }
 
-        if (bestCorrelation > 0.01) {
+        if (bestCorrelation > 0.1) {
             return sampleRate / bestOffset;
         }
 
