@@ -8,21 +8,7 @@ class Tuner {
         this.bufferLength = 0;
         this.dataArray = null;
 
-        // Musical note frequencies (A4 = 440 Hz standard)
-        this.noteFrequencies = {
-            'C': 261.63,
-            'C#': 277.18,
-            'D': 293.66,
-            'D#': 311.13,
-            'E': 329.63,
-            'F': 349.23,
-            'F#': 369.99,
-            'G': 392.00,
-            'G#': 415.30,
-            'A': 440.00,
-            'A#': 466.16,
-            'B': 493.88
-        };
+        this.noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
 
         this.initializeElements();
         this.setupEventListeners();
@@ -58,34 +44,31 @@ class Tuner {
 
     async start() {
         try {
-            // Resume audio context if suspended (required for some browsers)
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('AudioContext created, state:', this.audioContext.state);
+            this.errorMessage.classList.remove('show');
 
+            // Create audio context
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContextClass();
+
+            // Resume if suspended
             if (this.audioContext.state === 'suspended') {
                 await this.audioContext.resume();
-                console.log('AudioContext resumed');
             }
 
-            // Request microphone access
-            console.log('Requesting microphone access...');
+            // Request mic
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log('Got stream:', stream);
-            console.log('Audio tracks:', stream.getAudioTracks());
 
-            // Check if we actually got audio tracks
-            if (!stream || stream.getAudioTracks().length === 0) {
-                throw new Error('No audio tracks available');
+            if (!stream) {
+                throw new Error('No stream received');
             }
 
-            // Check if microphone is actually enabled
-            const audioTrack = stream.getAudioTracks()[0];
-            if (audioTrack.readyState === 'ended' || audioTrack.muted) {
-                throw new Error('Microphone is not available');
+            const tracks = stream.getAudioTracks();
+            if (!tracks || tracks.length === 0) {
+                throw new Error('No audio tracks');
             }
 
+            // Set up analyser
             this.microphone = this.audioContext.createMediaStreamSource(stream);
-
             this.analyser = this.audioContext.createAnalyser();
             this.analyser.fftSize = 2048;
             this.analyser.smoothingTimeConstant = 0.8;
@@ -97,53 +80,18 @@ class Tuner {
             this.isRunning = true;
             this.startBtn.textContent = 'Stop Tuner';
             this.startBtn.classList.add('active');
-            this.errorMessage.classList.remove('show');
 
-            // Listen for track errors
-            audioTrack.addEventListener('ended', () => {
-                this.stop();
-                this.showError('Microphone disconnected. Please allow microphone access and try again.');
-            });
-
-            audioTrack.addEventListener('mute', () => {
-                this.showError('Microphone is muted. Please unmute and try again.');
-            });
-
+            // Start detection
             this.detectPitch();
-        } catch (error) {
-            console.error('Microphone access error:', error);
-            this.handleMicError(error);
+
+        } catch (err) {
+            console.error('Tuner error:', err);
+            this.showError(err.message || 'Unknown error');
         }
     }
 
-    handleMicError(error) {
-        console.log('Full error:', error);
-
-        const errorName = error?.name || '';
-        const errorMessage = error?.message || '';
-
-        let message = 'Unable to access microphone. ';
-
-        if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
-            message = 'Microphone access denied. Please allow microphone access in your browser settings and try again.';
-        } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
-            message = 'No microphone found. Please connect a microphone and try again.';
-        } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
-            message = 'Microphone is in use by another application. Please close other apps using the microphone.';
-        } else if (errorName === 'NotSupportedError') {
-            message = 'Microphone access is not supported in this browser.';
-        } else if (errorMessage) {
-            message = `Error: ${errorMessage}`;
-        } else {
-            message = 'Unable to access microphone. Please check your browser permissions and try again.';
-        }
-
-        this.errorMessage.textContent = message;
-        this.errorMessage.classList.add('show');
-    }
-
-    showError(message) {
-        this.errorMessage.textContent = message;
+    showError(msg) {
+        this.errorMessage.textContent = msg;
         this.errorMessage.classList.add('show');
     }
 
@@ -152,10 +100,12 @@ class Tuner {
 
         if (this.microphone) {
             this.microphone.disconnect();
+            this.microphone = null;
         }
 
         if (this.audioContext) {
             this.audioContext.close();
+            this.audioContext = null;
         }
 
         this.startBtn.textContent = 'Start Tuner';
@@ -176,38 +126,40 @@ class Tuner {
             this.analyser.getFloatTimeDomainData(this.dataArray);
             const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
 
-            if (frequency === -1 || frequency < 20 || frequency > 5000) {
-                // No clear pitch detected or out of reasonable range
-                this.noteName.textContent = '--';
-                this.frequency.textContent = '0 Hz';
-                this.meterNeedle.style.left = '50%';
-                this.centsDisplay.textContent = '0 cents';
-                this.centsDisplay.className = 'cents-display';
-            } else {
+            if (frequency > 50 && frequency < 5000) {
                 this.updateDisplay(frequency);
+            } else {
+                this.clearDisplay();
             }
         } catch (e) {
-            console.error('Pitch detection error:', e);
+            console.error('Detection error:', e);
         }
 
         requestAnimationFrame(() => this.detectPitch());
     }
 
+    clearDisplay() {
+        this.noteName.textContent = '--';
+        this.frequency.textContent = '0 Hz';
+        this.meterNeedle.style.left = '50%';
+        this.centsDisplay.textContent = '0 cents';
+        this.centsDisplay.className = 'cents-display';
+    }
+
     autoCorrelate(buffer, sampleRate) {
-        const SIZE = buffer.length;
-        const MAX_SAMPLES = Math.floor(SIZE / 2);
+        const size = buffer.length;
+        const maxSamples = Math.floor(size / 2);
         let bestOffset = -1;
         let bestCorrelation = 0;
         let foundGoodCorrelation = false;
-        const correlations = new Array(MAX_SAMPLES);
+        const correlations = new Array(maxSamples);
 
-        // First pass: find the best correlation
-        for (let offset = 0; offset < MAX_SAMPLES; offset++) {
+        for (let offset = 0; offset < maxSamples; offset++) {
             let correlation = 0;
-            for (let i = 0; i < MAX_SAMPLES; i++) {
-                correlation += Math.abs((buffer[i]) - (buffer[i + offset]));
+            for (let i = 0; i < maxSamples; i++) {
+                correlation += Math.abs(buffer[i] - buffer[i + offset]);
             }
-            correlation = 1 - (correlation / MAX_SAMPLES);
+            correlation = 1 - (correlation / maxSamples);
             correlations[offset] = correlation;
 
             if (correlation > 0.9 && correlation > bestCorrelation) {
@@ -215,7 +167,6 @@ class Tuner {
                 bestOffset = offset;
                 foundGoodCorrelation = true;
             } else if (foundGoodCorrelation) {
-                // Shift based on sample rate to get frequency
                 const shift = (correlations[bestOffset + 1] - correlations[bestOffset - 1]) / correlations[bestOffset];
                 return sampleRate / (bestOffset + (8 * shift));
             }
@@ -229,28 +180,28 @@ class Tuner {
     }
 
     updateDisplay(frequency) {
-        // Calculate the closest note
-        const noteInfo = this.frequencyToNote(frequency);
+        // Calculate note
+        const semitones = 12 * Math.log2(frequency / this.a4Frequency);
+        const roundedSemitones = Math.round(semitones);
+        const cents = Math.round((semitones - roundedSemitones) * 100);
 
-        this.noteName.textContent = noteInfo.note;
-        if (noteInfo.sharp) {
-            this.noteName.classList.add('sharp');
-        } else {
-            this.noteName.classList.remove('sharp');
-        }
+        // Calculate note name
+        const noteIndex = ((roundedSemitones % 12) + 12) % 12;
+        const octave = Math.floor((roundedSemitones + 9) / 12) + 4;
+        const noteName = this.noteNames[noteIndex] || 'A';
 
-        this.frequency.textContent = `${frequency.toFixed(1)} Hz`;
+        // Update UI
+        this.noteName.textContent = noteName + octave;
+        this.noteName.classList.toggle('sharp', noteName.includes('#'));
 
-        // Update cents display (-50 to +50)
-        const cents = noteInfo.cents;
-        this.centsDisplay.textContent = `${cents > 0 ? '+' : ''}${cents} cents`;
+        this.frequency.textContent = frequency.toFixed(1) + ' Hz';
+        this.centsDisplay.textContent = (cents > 0 ? '+' : '') + cents + ' cents';
 
-        // Update meter position (0% = flat, 50% = in tune, 100% = sharp)
+        // Update meter (50% = center = in tune)
         const meterPosition = 50 + (cents / 50) * 50;
-        const clampedPosition = Math.max(0, Math.min(100, meterPosition));
-        this.meterNeedle.style.left = `${clampedPosition}%`;
+        this.meterNeedle.style.left = Math.max(0, Math.min(100, meterPosition)) + '%';
 
-        // Update cents display color
+        // Update color
         this.centsDisplay.className = 'cents-display';
         if (Math.abs(cents) <= 5) {
             this.centsDisplay.classList.add('in-tune');
@@ -260,41 +211,9 @@ class Tuner {
             this.centsDisplay.classList.add('flat');
         }
     }
-
-    frequencyToNote(frequency) {
-        // Validate frequency
-        if (!frequency || !isFinite(frequency) || frequency < 20 || frequency > 20000) {
-            return { note: '--', sharp: false, cents: 0 };
-        }
-
-        // Calculate the number of semitones from A4
-        const semitones = 12 * Math.log2(frequency / this.a4Frequency);
-        const roundedSemitones = Math.round(semitones);
-
-        // Calculate cents deviation
-        const cents = Math.round((semitones - roundedSemitones) * 100);
-
-        // Calculate the note name
-        const noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
-        const octave = Math.floor((roundedSemitones + 9) / 12) + 4;
-        let noteIndex = ((roundedSemitones % 12) + 12) % 12;
-
-        // Ensure noteIndex is valid
-        if (noteIndex < 0 || noteIndex >= noteNames.length) {
-            noteIndex = 0;
-        }
-
-        const noteName = noteNames[noteIndex] || 'A';
-
-        return {
-            note: noteName + octave,
-            sharp: noteName.includes('#'),
-            cents: cents
-        };
-    }
 }
 
-// Initialize the tuner when the page loads
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    const tuner = new Tuner();
+    new Tuner();
 });
