@@ -72,6 +72,18 @@
           "sizes": "96x96"
         }
       ]
+    },
+    {
+      "name": "Tuner",
+      "short_name": "Tuner",
+      "description": "Open the tuner app",
+      "url": "/apps/tuner/",
+      "icons": [
+        {
+          "src": "icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ],
   "prefer_related_applications": false

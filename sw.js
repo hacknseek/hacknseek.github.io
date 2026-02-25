@@ -1,4 +1,4 @@
-const CACHE_NAME = 'hacknseek-apps-v1';
+const CACHE_NAME = 'hacknseek-apps-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -8,6 +8,9 @@ const urlsToCache = [
   '/apps/metronome/',
   '/apps/metronome/index.html',
   '/apps/metronome/script.js',
+  '/apps/tuner/',
+  '/apps/tuner/index.html',
+  '/apps/tuner/script.js',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
 ];
