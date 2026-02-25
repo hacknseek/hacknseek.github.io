@@ -22,6 +22,7 @@ class Tuner {
         this.startBtn = document.getElementById('startBtn');
         this.a4Select = document.getElementById('a4Frequency');
         this.errorMessage = document.getElementById('errorMessage');
+        this.volumeBar = document.getElementById('volumeBar');
     }
 
     setupEventListeners() {
@@ -130,16 +131,28 @@ class Tuner {
         this.meterNeedle.style.left = '50%';
         this.centsDisplay.textContent = '0 cents';
         this.centsDisplay.className = 'cents-display';
+        this.volumeBar.style.width = '0%';
     }
 
     detectPitch() {
         if (!this.isRunning) return;
+        if (!this.analyser || !this.dataArray) return;
 
         try {
             this.analyser.getFloatTimeDomainData(this.dataArray);
+
+            // Calculate volume (RMS)
+            let sum = 0;
+            for (let i = 0; i < this.dataArray.length; i++) {
+                sum += this.dataArray[i] * this.dataArray[i];
+            }
+            const rms = Math.sqrt(sum / this.dataArray.length);
+            const volumePercent = Math.min(100, rms * 500);
+            this.volumeBar.style.width = volumePercent + '%';
+
             const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
 
-            console.log('Detected frequency:', frequency);
+            console.log('Volume:', rms, 'Frequency:', frequency);
 
             if (frequency > 50 && frequency < 5000) {
                 this.updateDisplay(frequency);
@@ -159,6 +172,7 @@ class Tuner {
         this.meterNeedle.style.left = '50%';
         this.centsDisplay.textContent = '0 cents';
         this.centsDisplay.className = 'cents-display';
+        this.volumeBar.style.width = '0%';
     }
 
     autoCorrelate(buffer, sampleRate) {
