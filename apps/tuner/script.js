@@ -233,6 +233,8 @@ class Tuner {
     }
 
     updateDisplay(frequency) {
+        console.log('updateDisplay called with:', frequency);
+
         if (!frequency || !isFinite(frequency)) {
             this.clearDisplay();
             return;
@@ -257,25 +259,32 @@ class Tuner {
             noteName = 'A';
         }
 
+        console.log('Note:', noteName + octave, 'Cents:', cents);
+
         // Update UI
-        this.noteName.textContent = noteName + octave;
-        this.noteName.classList.toggle('sharp', noteName && noteName.includes('#'));
+        try {
+            this.noteName.textContent = noteName + octave;
+            this.noteName.classList.toggle('sharp', noteName && noteName.includes('#'));
 
-        this.frequency.textContent = frequency.toFixed(1) + ' Hz';
-        this.centsDisplay.textContent = (cents > 0 ? '+' : '') + cents + ' cents';
+            this.frequency.textContent = frequency.toFixed(1) + ' Hz';
+            this.centsDisplay.textContent = (cents > 0 ? '+' : '') + cents + ' cents';
 
-        // Update meter (50% = center = in tune)
-        const meterPosition = 50 + (cents / 50) * 50;
-        this.meterNeedle.style.left = Math.max(0, Math.min(100, meterPosition)) + '%';
+            // Update meter (50% = center = in tune)
+            const meterPosition = 50 + (cents / 50) * 50;
+            this.meterNeedle.style.left = Math.max(0, Math.min(100, meterPosition)) + '%';
 
-        // Update color
-        this.centsDisplay.className = 'cents-display';
-        if (Math.abs(cents) <= 5) {
-            this.centsDisplay.classList.add('in-tune');
-        } else if (cents > 0) {
-            this.centsDisplay.classList.add('sharp');
-        } else {
-            this.centsDisplay.classList.add('flat');
+            // Update color
+            this.centsDisplay.className = 'cents-display';
+            if (Math.abs(cents) <= 5) {
+                this.centsDisplay.classList.add('in-tune');
+            } else if (cents > 0) {
+                this.centsDisplay.classList.add('sharp');
+            } else {
+                this.centsDisplay.classList.add('flat');
+            }
+            console.log('UI updated successfully');
+        } catch (e) {
+            console.error('UI update error:', e);
         }
     }
 }
