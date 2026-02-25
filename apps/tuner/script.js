@@ -139,6 +139,8 @@ class Tuner {
             this.analyser.getFloatTimeDomainData(this.dataArray);
             const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
 
+            console.log('Detected frequency:', frequency);
+
             if (frequency > 50 && frequency < 5000) {
                 this.updateDisplay(frequency);
             } else {
