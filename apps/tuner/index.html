@@ -134,6 +134,26 @@
             transition: width 0.1s ease;
         }
 
+        .pitch-graph {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .pitch-graph label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        #pitchCanvas {
+            width: 100%;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
         .start-btn {
             padding: 15px 40px;
             font-size: 1.2rem;
@@ -231,6 +251,16 @@
                     </div>
                 </div>
 
+                <div class="volume-meter">
+                    <label for="sensitivity">Sensitivity:</label>
+                    <input type="range" id="sensitivity" min="1" max="100" value="50">
+                </div>
+
+                <div class="pitch-graph">
+                    <label>Pitch Over Time:</label>
+                    <canvas id="pitchCanvas"></canvas>
+                </div>
+
                 <button class="start-btn" id="startBtn">Start Tuner</button>
 
                 <div class="pitch-reference">
@@ -250,6 +280,6 @@
         </footer>
     </div>
 
-    <script src="script.js?v=3"></script>
+    <script src="script.js?v=4"></script>
 </body>
 </html>

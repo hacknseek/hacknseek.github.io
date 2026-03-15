@@ -7,6 +7,9 @@ class Tuner {
         this.a4Frequency = 440;
         this.bufferLength = 0;
         this.dataArray = null;
+        this.sensitivity = 50; // 1-100, higher = more sensitive
+        this.pitchHistory = [];
+        this.maxPitchPoints = 200;
 
         this.noteNames = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
 
@@ -23,6 +26,15 @@ class Tuner {
         this.a4Select = document.getElementById('a4Frequency');
         this.errorMessage = document.getElementById('errorMessage');
         this.volumeBar = document.getElementById('volumeBar');
+        this.sensitivitySlider = document.getElementById('sensitivity');
+        this.pitchCanvas = document.getElementById('pitchCanvas');
+        this.pitchCtx = this.pitchCanvas ? this.pitchCanvas.getContext('2d') : null;
+
+        // Ensure canvas has proper pixel dimensions
+        if (this.pitchCanvas) {
+            this.pitchCanvas.width = this.pitchCanvas.clientWidth;
+            this.pitchCanvas.height = this.pitchCanvas.clientHeight;
+        }
     }
 
     setupEventListeners() {
@@ -33,6 +45,15 @@ class Tuner {
         this.a4Select.addEventListener('change', (e) => {
             this.a4Frequency = parseInt(e.target.value);
         });
+
+        if (this.sensitivitySlider) {
+            this.sensitivitySlider.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!isNaN(value)) {
+                    this.sensitivity = Math.max(1, Math.min(100, value));
+                }
+            });
+        }
     }
 
     async toggleTuner() {
@@ -46,36 +67,53 @@ class Tuner {
     async start() {
         try {
             this.errorMessage.classList.remove('show');
-            console.log('1. Creating AudioContext...');
+            console.log('1. Starting tuner...');
+
+            // Check for browser support and secure context requirements
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('This browser does not support microphone access via getUserMedia.');
+            }
+
+            if (window.isSecureContext === false) {
+                throw new Error('Microphone access requires HTTPS or localhost. Please open this app over HTTPS.');
+            }
+
+            console.log('2. Creating AudioContext...');
 
             // Create audio context
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContextClass();
-            console.log('2. AudioContext state:', this.audioContext.state);
+            console.log('3. AudioContext state:', this.audioContext.state);
 
             // Resume if suspended
             if (this.audioContext.state === 'suspended') {
-                console.log('3. Resuming AudioContext...');
+                console.log('4. Resuming AudioContext...');
                 await this.audioContext.resume();
-                console.log('4. Resumed, new state:', this.audioContext.state);
+                console.log('5. Resumed, new state:', this.audioContext.state);
             }
 
-            // Request mic
-            console.log('5. Requesting microphone...');
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log('6. Got stream:', stream);
-            console.log('7. Audio tracks:', stream.getAudioTracks());
+            // Request mic (must be in a user gesture, which is ensured by the Start button)
+            console.log('6. Requesting microphone...');
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+            console.log('7. Got stream:', stream);
+            console.log('8. Audio tracks:', stream.getAudioTracks());
 
             if (!stream) {
-                throw new Error('No stream received');
+                throw new Error('No microphone stream was received from the browser.');
             }
 
             const tracks = stream.getAudioTracks();
             if (!tracks || tracks.length === 0) {
-                throw new Error('No audio tracks');
+                throw new Error('No active audio input device was found.');
             }
 
-            console.log('8. Setting up analyser...');
+            console.log('9. Setting up analyser...');
 
             // Set up analyser
             this.microphone = this.audioContext.createMediaStreamSource(stream);
@@ -87,7 +125,7 @@ class Tuner {
             this.bufferLength = this.analyser.fftSize;
             this.dataArray = new Float32Array(this.bufferLength);
 
-            console.log('9. Starting tuner...');
+            console.log('10. Starting tuner...');
 
             this.isRunning = true;
             this.startBtn.textContent = 'Stop Tuner';
@@ -96,11 +134,35 @@ class Tuner {
             // Start detection
             this.detectPitch();
 
-            console.log('10. Tuner started successfully!');
+            console.log('11. Tuner started successfully!');
 
         } catch (err) {
-            console.error('Tuner error at step:', err);
-            this.showError(err.message || 'Unknown error: ' + err.toString());
+            console.error('Tuner start error:', err);
+
+            let friendlyMsg;
+            switch (err && err.name) {
+                case 'NotAllowedError':
+                case 'PermissionDeniedError':
+                    friendlyMsg = 'Microphone permission was denied. Check your browser\'s site permissions for this page.';
+                    break;
+                case 'NotFoundError':
+                case 'DevicesNotFoundError':
+                    friendlyMsg = 'No microphone was found. Please connect a mic and try again.';
+                    break;
+                case 'NotReadableError':
+                case 'TrackStartError':
+                    friendlyMsg = 'Your microphone is in use by another application. Close other apps using the mic and try again.';
+                    break;
+                case 'SecurityError':
+                    friendlyMsg = 'Microphone access is blocked by browser security settings. Ensure you are using HTTPS or localhost and that mic access is allowed.';
+                    break;
+                default:
+                    friendlyMsg = err && err.message
+                        ? err.message
+                        : 'Unable to access the microphone. Please check your device and browser settings.';
+            }
+
+            this.showError(friendlyMsg);
         }
     }
 
@@ -155,8 +217,15 @@ class Tuner {
 
             console.log('Volume RMS:', rms.toFixed(4), 'Max:', maxSample.toFixed(4));
 
-            // Only try pitch detection if there's enough volume
-            if (rms > 0.01) {
+            // Only try pitch detection if there's enough volume.
+            // Map sensitivity (1-100) to an RMS threshold where higher sensitivity
+            // means we accept quieter signals (lower threshold).
+            const sensitivityNorm = this.sensitivity / 100; // 0.01 - 1
+            const minThreshold = 0.002; // very sensitive
+            const maxThreshold = 0.02;  // requires louder signal
+            const rmsThreshold = maxThreshold - (maxThreshold - minThreshold) * sensitivityNorm;
+
+            if (rms > rmsThreshold) {
                 const frequency = this.autoCorrelate(this.dataArray, this.audioContext.sampleRate);
                 console.log('Detected frequency:', frequency);
 
@@ -182,6 +251,7 @@ class Tuner {
         this.centsDisplay.textContent = '0 cents';
         this.centsDisplay.className = 'cents-display';
         this.volumeBar.style.width = '0%';
+        this.clearPitchGraph();
     }
 
     autoCorrelate(buffer, sampleRate) {
@@ -257,7 +327,8 @@ class Tuner {
         // Update UI
         try {
             this.noteName.textContent = noteName + octave;
-            this.noteName.classList.toggle('sharp', noteName && noteName.includes('#'));
+            const isSharp = typeof noteName === 'string' && noteName.indexOf('#') !== -1;
+            this.noteName.classList.toggle('sharp', isSharp);
 
             this.frequency.textContent = frequency.toFixed(1) + ' Hz';
             this.centsDisplay.textContent = (cents > 0 ? '+' : '') + cents + ' cents';
@@ -275,10 +346,68 @@ class Tuner {
             } else {
                 this.centsDisplay.classList.add('flat');
             }
+
+            // Update pitch history graph
+            this.updatePitchGraph(frequency, cents);
+
             console.log('UI updated successfully');
         } catch (e) {
             console.error('UI update error:', e);
         }
+    }
+
+    updatePitchGraph(frequency, cents) {
+        if (!this.pitchCtx || !this.pitchCanvas) return;
+
+        // Clamp cents to a reasonable range for display
+        const clampedCents = Math.max(-50, Math.min(50, cents));
+
+        this.pitchHistory.push({ frequency, cents: clampedCents });
+        if (this.pitchHistory.length > this.maxPitchPoints) {
+            this.pitchHistory.shift();
+        }
+
+        const ctx = this.pitchCtx;
+        const width = this.pitchCanvas.width;
+        const height = this.pitchCanvas.height;
+
+        ctx.clearRect(0, 0, width, height);
+
+        // Draw center line (in tune)
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, height / 2);
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
+
+        if (this.pitchHistory.length < 2) return;
+
+        // Draw cents over time
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        const stepX = width / (this.maxPitchPoints - 1);
+        this.pitchHistory.forEach((point, index) => {
+            const x = index * stepX;
+            // Map -50..50 cents to bottom..top
+            const normalized = (point.cents + 50) / 100; // 0..1
+            const y = height - normalized * height;
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        ctx.stroke();
+    }
+
+    clearPitchGraph() {
+        if (!this.pitchCtx || !this.pitchCanvas) return;
+        this.pitchHistory = [];
+        this.pitchCtx.clearRect(0, 0, this.pitchCanvas.width, this.pitchCanvas.height);
     }
 }
 
