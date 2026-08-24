@@ -1,56 +1,20 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HackNSeek Apps</title>
-    <meta name="description" content="A collection of useful web apps">
-    <meta name="theme-color" content="#6366f1">
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>HackNSeek Tools</title>
+  <meta name="description" content="Offline-first toolbox for musicians and tinkerers: metronome, tuner, timer and tap tempo." />
+  <meta name="theme-color" content="#0b0d12" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./css/styles.css" />
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>HackNSeek</h1>
-            <p class="subtitle">Web Apps Collection</p>
-        </header>
-
-        <main>
-            <div class="apps-grid">
-                <a href="apps/metronome/" class="app-card">
-                    <div class="app-icon">🎵</div>
-                    <h2>Metronome</h2>
-                    <p>Keep the beat with adjustable BPM and time signatures</p>
-                </a>
-
-                <a href="apps/tuner/" class="app-card">
-                    <div class="app-icon">🎹</div>
-                    <h2>Tuner</h2>
-                    <p>Chromatic instrument tuner with visual meter</p>
-                </a>
-
-                <div class="app-card coming-soon">
-                    <div class="app-icon">⏱️</div>
-                    <h2>Timer</h2>
-                    <p>Countdown and interval timer</p>
-                    <span class="badge">Coming Soon</span>
-                </div>
-
-                <div class="app-card coming-soon">
-                    <div class="app-icon">📐</div>
-                    <h2>Tap Tempo</h2>
-                    <p>BPM tap tempo detector</p>
-                    <span class="badge">Coming Soon</span>
-                </div>
-            </div>
-        </main>
-
-        <footer>
-            <p>More apps coming soon</p>
-        </footer>
-    </div>
-
-    <script src="script.js"></script>
+  <div id="app" class="app"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./js/main.js"></script>
 </body>
 </html>

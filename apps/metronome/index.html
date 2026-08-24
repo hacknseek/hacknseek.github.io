@@ -1,86 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Metronome - HackNSeek</title>
-    <meta name="description" content="A progressive web app metronome for musicians">
-    <meta name="theme-color" content="#6366f1">
-    <link rel="manifest" href="../../manifest.json">
-    <link rel="stylesheet" href="../../styles.css">
-    <style>
-        .app-page {
-            max-width: 500px;
-            margin: 0 auto;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>Metronome - HackNSeek</title>
+  <meta http-equiv="refresh" content="0; url=../../#metronome" />
+  <link rel="canonical" href="../../#metronome" />
 </head>
 <body>
-    <div class="container">
-        <a href="../../" class="back-link">← Back to Apps</a>
-
-        <main class="app-page">
-            <div class="metronome-container">
-                <div class="bpm-display">
-                    <span class="bpm-value" id="bpmValue">120</span>
-                    <span class="bpm-label">BPM</span>
-                </div>
-
-                <div class="controls">
-                    <div class="bpm-controls">
-                        <button class="bpm-btn" id="bpmDown">-</button>
-                        <div class="bpm-slider-container">
-                            <input type="range" id="bpmSlider" min="40" max="200" value="120" class="bpm-slider">
-                        </div>
-                        <button class="bpm-btn" id="bpmUp">+</button>
-                    </div>
-
-                    <div class="time-signature">
-                        <label for="timeSignature">Time Signature:</label>
-                        <select id="timeSignature">
-                            <option value="4/4">4/4</option>
-                            <option value="3/4">3/4</option>
-                            <option value="2/4">2/4</option>
-                            <option value="6/8">6/8</option>
-                        </select>
-                    </div>
-
-                    <div class="playback-controls">
-                        <button class="play-btn" id="playBtn">
-                            <span class="play-icon">▶</span>
-                        </button>
-                        <button class="reset-btn" id="resetBtn">Reset</button>
-                    </div>
-                </div>
-
-                <div class="visual-indicator">
-                    <div class="beat-indicator" id="beatIndicator"></div>
-                    <div class="beat-dots">
-                        <div class="beat-dot active" data-beat="0"></div>
-                        <div class="beat-dot" data-beat="1"></div>
-                        <div class="beat-dot" data-beat="2"></div>
-                        <div class="beat-dot" data-beat="3"></div>
-                    </div>
-                </div>
-
-                <div class="tempo-presets">
-                    <h3>Common Tempos</h3>
-                    <div class="preset-buttons">
-                        <button class="preset-btn" data-bpm="60">Largo (60)</button>
-                        <button class="preset-btn" data-bpm="80">Andante (80)</button>
-                        <button class="preset-btn" data-bpm="120">Moderato (120)</button>
-                        <button class="preset-btn" data-bpm="140">Allegro (140)</button>
-                        <button class="preset-btn" data-bpm="160">Presto (160)</button>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <footer>
-            <p>Tap anywhere to start/stop</p>
-        </footer>
-    </div>
-
-    <script src="script.js"></script>
+  <p>Redirecting to <a href="../../#metronome">HackNSeek Metronome</a>&hellip;</p>
+  <script>location.replace("../../#metronome");</script>
 </body>
 </html>
