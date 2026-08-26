@@ -112,6 +112,18 @@ render();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker
+      .register('./sw.js')
+      .then((reg) => {
+        reg.update().catch(() => {});
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (hadController && !window.__hnsReloading) {
+            window.__hnsReloading = true;
+            location.reload();
+          }
+        });
+      })
+      .catch(() => {});
   });
 }

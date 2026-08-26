@@ -4,11 +4,27 @@ const NOTE_NAMES = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', '
 const A4_OPTIONS = [432, 440, 442, 444];
 const HISTORY_MAX = 220;
 const SMOOTH_WINDOW = 5;
+const SENS_T_LOUD = 0.06;
+const SENS_T_QUIET = 0.0005;
+const SENS_V_MIN = 1;
+const SENS_V_MAX = 100;
+
+function sliderToThreshold(v) {
+  const k = (clamp(v, SENS_V_MIN, SENS_V_MAX) - SENS_V_MIN) / (SENS_V_MAX - SENS_V_MIN);
+  return SENS_T_LOUD * Math.pow(SENS_T_QUIET / SENS_T_LOUD, k);
+}
+
+function thresholdToSlider(t) {
+  const k =
+    Math.log(clamp(t, SENS_T_QUIET, SENS_T_LOUD) / SENS_T_LOUD) /
+    Math.log(SENS_T_QUIET / SENS_T_LOUD);
+  return Math.round(SENS_V_MIN + (SENS_V_MAX - SENS_V_MIN) * k);
+}
 
 export function Tuner({ main, onCleanup }) {
   const s = {
     a4: store.get('tuner.a4', 440),
-    sens: store.get('tuner.sens', 0.012),
+    sens: store.get('tuner.sens', 0.004),
   };
 
   let ctx = null;
@@ -63,10 +79,10 @@ export function Tuner({ main, onCleanup }) {
 
   const sensSlider = el('input', {
     type: 'range',
-    min: 1,
-    max: 50,
+    min: SENS_V_MIN,
+    max: SENS_V_MAX,
     step: 1,
-    value: Math.round(s.sens * 1000),
+    value: thresholdToSlider(s.sens),
     'aria-label': 'Microphone sensitivity',
   });
 
@@ -258,10 +274,20 @@ export function Tuner({ main, onCleanup }) {
 
   function autoCorrelate(buffer, sampleRate) {
     const size = buffer.length;
+    let mean = 0;
+    for (let i = 0; i < size; i++) mean += buffer[i];
+    mean /= size;
+
+    const sig = new Float32Array(size);
     let rms = 0;
-    for (let i = 0; i < size; i++) rms += buffer[i] * buffer[i];
+    for (let i = 0; i < size; i++) {
+      const v = buffer[i] - mean;
+      sig[i] = v;
+      rms += v * v;
+    }
     rms = Math.sqrt(rms / size);
-    if (rms < 0.005) return -1;
+    const energy = rms * rms;
+    if (energy < 1e-9) return -1;
 
     const minLag = Math.floor(sampleRate / 1200);
     const maxLag = Math.floor(sampleRate / 50);
@@ -270,14 +296,29 @@ export function Tuner({ main, onCleanup }) {
     let bestCorr = 0;
     for (let lag = minLag; lag <= maxLag; lag++) {
       let c = 0;
-      for (let i = 0; i < size - lag; i++) c += buffer[i] * buffer[i + lag];
+      for (let i = 0; i < size - lag; i++) c += sig[i] * sig[i + lag];
       corr[lag] = c / (size - lag);
       if (corr[lag] > bestCorr) {
         bestCorr = corr[lag];
         bestLag = lag;
       }
     }
-    if (bestLag <= 0 || bestCorr < 0.35) return -1;
+    if (bestLag <= 0 || bestCorr / energy < 0.5) return -1;
+
+    const cutoff = bestCorr * 0.9;
+    let state = 0;
+    let peak = -1;
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      if (state === 0) {
+        if (corr[lag] < cutoff) state = 1;
+      } else if (corr[lag] >= cutoff) {
+        peak = lag;
+        break;
+      }
+    }
+    if (peak === -1 || corr[peak] / energy < 0.35) return -1;
+    while (peak + 1 <= maxLag && corr[peak + 1] > corr[peak]) peak++;
+    bestLag = peak;
 
     const a = corr[bestLag - 1] ?? bestCorr;
     const c = corr[bestLag + 1] ?? bestCorr;
@@ -292,7 +333,7 @@ export function Tuner({ main, onCleanup }) {
   });
 
   sensSlider.addEventListener('input', (e) => {
-    s.sens = (+e.target.value) / 1000;
+    s.sens = sliderToThreshold(+e.target.value);
     store.set('tuner.sens', s.sens);
   });
 
