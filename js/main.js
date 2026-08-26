@@ -1,4 +1,4 @@
-import { el } from './dom.js';
+import { el, toast } from './dom.js';
 import { icons } from './icons.js';
 import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
@@ -42,6 +42,13 @@ function topbar() {
       ]),
     ]),
     el('div', { className: 'row' }, [
+      el('button', {
+        className: 'icon-btn',
+        'aria-label': 'Check for updates',
+        title: 'Check for updates',
+        innerHTML: icons.refresh,
+        onclick: () => checkForUpdate(true),
+      }),
       el('a', { className: 'pill', href: GITHUB_URL, target: '_blank', rel: 'noopener' }, 'Source'),
     ]),
   ]);
@@ -110,20 +117,72 @@ function render() {
 window.addEventListener('hashchange', render);
 render();
 
+let checkingUpdate = false;
+
+async function checkForUpdate(manual = false) {
+  if (!('serviceWorker' in navigator)) {
+    if (manual) toast('Updates are not supported in this browser.');
+    return;
+  }
+  if (checkingUpdate) {
+    if (manual) toast('Already checking\u2026');
+    return;
+  }
+  checkingUpdate = true;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      if (manual) toast('Offline cache is not active yet.');
+      return;
+    }
+    let found = false;
+    const onUpdateFound = () => { found = true; };
+    reg.addEventListener('updatefound', onUpdateFound);
+    try { await reg.update(); } catch {}
+    reg.removeEventListener('updatefound', onUpdateFound);
+
+    if (!found) {
+      if (manual) toast('You are on the latest version.');
+      return;
+    }
+
+    const worker = reg.installing || reg.waiting;
+    toast('Update found \u2014 applying\u2026', 4000);
+    if (worker) {
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated' && !window.__hnsReloading) {
+          window.__hnsReloading = true;
+          location.reload();
+        }
+      });
+    } else if (!window.__hnsReloading) {
+      window.__hnsReloading = true;
+      setTimeout(() => location.reload(), 1200);
+    }
+  } finally {
+    checkingUpdate = false;
+  }
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker
       .register('./sw.js')
-      .then((reg) => {
-        reg.update().catch(() => {});
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (hadController && !window.__hnsReloading) {
-            window.__hnsReloading = true;
-            location.reload();
-          }
-        });
-      })
+      .then(() => checkForUpdate(false))
       .catch(() => {});
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !window.__hnsReloading) {
+        window.__hnsReloading = true;
+        location.reload();
+      }
+    });
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate(false);
+  });
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) checkForUpdate(false);
   });
 }
