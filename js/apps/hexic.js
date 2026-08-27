@@ -361,7 +361,7 @@ export function Hexic({ main, onCleanup }) {
 
         ctx2d.globalAlpha = 1;
         ctx2d.beginPath();
-        ctx2d.arc(hx, hy, RR * pulse, 0, Math.PI * 2);
+        ctx2d.arc(hx, hy, RR, 0, Math.PI * 2);
         ctx2d.fillStyle = color;
         ctx2d.shadowColor = color;
         ctx2d.shadowBlur = cell.matched ? 14 : 5;
