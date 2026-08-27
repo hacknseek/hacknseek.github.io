@@ -28,6 +28,8 @@ export function Hexic({ main, onCleanup }) {
   let hint = null;
   let combo = 0;
   let moves = 0;
+  let focused = { r: 0, c: 0 };
+  let stepTimer = 0;
 
   const R = 28;
   const RR = R - 3;
@@ -78,7 +80,7 @@ export function Hexic({ main, onCleanup }) {
         if (d < bestD) { bestD = d; best = { r, c }; }
       }
     }
-    return bestD < RR * RR * 1.2 ? best : null;
+    return bestD < R * R * 1.05 ? best : null;
   }
 
   function findMatchedTrails() {
@@ -231,7 +233,11 @@ export function Hexic({ main, onCleanup }) {
     const hadMatch = clearMatched();
     if (hadMatch) {
       drop(); fillTop();
-      setTimeout(processStep, 200);
+      clearTimeout(stepTimer);
+      stepTimer = setTimeout(() => {
+        stepTimer = 0;
+        processStep();
+      }, 200);
       return;
     }
     combo = 0;
@@ -251,15 +257,8 @@ export function Hexic({ main, onCleanup }) {
     grid[r2][c2].color = tmp;
   }
 
-  function onPointerDown(e) {
+  function selectCell(h) {
     if (over || anim || dropping) return;
-    const rect = canvas.getBoundingClientRect();
-    const k = BW / rect.width;
-    const px = (e.clientX - rect.left) * k;
-    const py = (e.clientY - rect.top) * k;
-    const h = pixelToHex(px, py);
-    if (!h) return;
-
     hint = null;
     if (!sel) {
       sel = h;
@@ -287,7 +286,49 @@ export function Hexic({ main, onCleanup }) {
     sel = null;
   }
 
-  const canvas = el('canvas', { className: 'hexic-board' });
+  function onPointerDown(e) {
+    const rect = canvas.getBoundingClientRect();
+    const k = BW / rect.width;
+    const px = (e.clientX - rect.left) * k;
+    const py = (e.clientY - rect.top) * k;
+    const h = pixelToHex(px, py);
+    if (h) {
+      focused = h;
+      selectCell(h);
+    }
+  }
+
+  function onKeyDown(e) {
+    if (over) return;
+    const movesByKey = {
+      ArrowUp: [-1, 0], ArrowDown: [1, 0],
+      ArrowLeft: [0, -1], ArrowRight: [0, 1],
+    };
+    if (movesByKey[e.key]) {
+      e.preventDefault();
+      const [dr, dc] = movesByKey[e.key];
+      focused = {
+        r: Math.max(0, Math.min(ROWS - 1, focused.r + dr)),
+        c: Math.max(0, Math.min(COLS - 1, focused.c + dc)),
+      };
+      sel = null;
+      hint = null;
+      draw();
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      selectCell(focused);
+      draw();
+    }
+  }
+
+  const canvas = el('canvas', {
+    className: 'hexic-board',
+    tabIndex: 0,
+    role: 'application',
+  });
+  canvas.setAttribute('aria-label', 'Hexic game board. Use arrow keys to choose a piece and Enter to select it.');
   const hud = el('div', { className: 'panel-row between' });
   const scoreEl = el('span', { className: 'big-number', style: 'font-size:1.6rem' }, '0');
   const bestEl = el('span', { className: 'muted' }, 'Best: ' + best);
@@ -357,6 +398,14 @@ export function Hexic({ main, onCleanup }) {
         drawHex(hx, hy, R + 4, null, '#fbbf24');
         ctx2d.setLineDash([]);
       }
+    }
+
+    if (document.activeElement === canvas) {
+      const fx = hexX(focused.r, focused.c);
+      const fy = grid[focused.r][focused.c].baseY + grid[focused.r][focused.c].py;
+      ctx2d.strokeStyle = '#94a3b8';
+      ctx2d.lineWidth = 2;
+      drawHex(fx, fy, R + 2, null, '#94a3b8');
     }
 
     if (sel) {
@@ -489,6 +538,8 @@ export function Hexic({ main, onCleanup }) {
   }
 
   function startGame() {
+    clearTimeout(stepTimer);
+    stepTimer = 0;
     do {
       initGrid();
       for (let r = 0; r < ROWS; r++) {
@@ -499,20 +550,29 @@ export function Hexic({ main, onCleanup }) {
       }
     } while (findMatchedTrails().any || !hasValidMoves());
     score = 0; moves = 0; over = false; combo = 0;
-    sel = null; hint = null; anim = null; dropping = false; particles = [];
+    sel = null; hint = null; focused = { r: 0, c: 0 };
+    anim = null; dropping = false; particles = [];
     updateHUD();
     sizeCanvas();
   }
 
-  resetBtn.addEventListener('click', () => { startGame(); resetBtn.blur(); });
-  hintBtn.addEventListener('click', () => {
+  function onNewGame() {
+    startGame();
+    resetBtn.blur();
+  }
+
+  function onHint() {
     if (over || isAnimating()) return;
     hint = findValidMove();
     if (hint) updateHUD();
     hintBtn.blur();
-  });
+    draw();
+  }
 
+  resetBtn.addEventListener('click', onNewGame);
+  hintBtn.addEventListener('click', onHint);
   canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('keydown', onKeyDown);
 
   let rafId = 0;
   function start() { lastTime = performance.now(); rafId = requestAnimationFrame(tick); }
@@ -522,7 +582,12 @@ export function Hexic({ main, onCleanup }) {
   window.addEventListener('resize', sizeCanvas);
 
   onCleanup(() => {
+    clearTimeout(stepTimer);
     cancelAnimationFrame(rafId);
+    resetBtn.removeEventListener('click', onNewGame);
+    hintBtn.removeEventListener('click', onHint);
+    canvas.removeEventListener('pointerdown', onPointerDown);
+    canvas.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize', sizeCanvas);
   });
 }
