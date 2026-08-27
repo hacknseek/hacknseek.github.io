@@ -25,8 +25,9 @@ export function Hexic({ main, onCleanup }) {
   let dropping = false;
   let over = false;
   let particles = [];
-  let hintId = 0;
+  let hint = null;
   let combo = 0;
+  let moves = 0;
 
   const R = 28;
   const RR = R - 3;
@@ -203,7 +204,7 @@ export function Hexic({ main, onCleanup }) {
     return false;
   }
 
-  function hasValidMoves() {
+  function findValidMove() {
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         for (const [nr, nc] of neighbors(r, c)) {
@@ -214,11 +215,15 @@ export function Hexic({ main, onCleanup }) {
           grid[r][c].color = b; grid[nr][nc].color = a;
           const { any } = findMatchedTrails();
           grid[r][c].color = a; grid[nr][nc].color = b;
-          if (any) return true;
+          if (any) return [{ r, c }, { r: nr, c: nc }];
         }
       }
     }
-    return false;
+    return null;
+  }
+
+  function hasValidMoves() {
+    return Boolean(findValidMove());
   }
 
   function processStep() {
@@ -255,6 +260,7 @@ export function Hexic({ main, onCleanup }) {
     const h = pixelToHex(px, py);
     if (!h) return;
 
+    hint = null;
     if (!sel) {
       sel = h;
       return;
@@ -272,6 +278,7 @@ export function Hexic({ main, onCleanup }) {
     doSwap(r1, c1, r2, c2);
     const { any } = findMatchedTrails();
     if (any) {
+      moves++;
       startSwap(r1, c1, r2, c2, true);
     } else {
       doSwap(r1, c1, r2, c2);
@@ -287,9 +294,10 @@ export function Hexic({ main, onCleanup }) {
   hud.append(scoreEl, bestEl);
 
   const resetBtn = el('button', { className: 'btn' }, 'New game');
+  const hintBtn = el('button', { className: 'btn ghost' }, 'Hint');
 
   const boardWrap = el('div', { className: 'hexic-wrap' }, [canvas]);
-  root.append(boardWrap, hud, resetBtn,
+  root.append(boardWrap, hud, el('div', { className: 'row' }, [resetBtn, hintBtn]),
     el('div', { className: 'muted', style: 'font-size:0.85rem' },
       'Tap a piece, then tap an adjacent piece to swap. Match 3+ in a row to clear.')
   );
@@ -338,6 +346,16 @@ export function Hexic({ main, onCleanup }) {
         const hx = hexX(r, c) + (cell.px || 0);
         const hy = cell.baseY + cell.py;
         drawHex(hx, hy, R, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)');
+      }
+    }
+
+    if (hint) {
+      for (const cell of hint) {
+        const hx = hexX(cell.r, cell.c);
+        const hy = grid[cell.r][cell.c].baseY + grid[cell.r][cell.c].py;
+        ctx2d.setLineDash([5, 4]);
+        drawHex(hx, hy, R + 4, null, '#fbbf24');
+        ctx2d.setLineDash([]);
       }
     }
 
@@ -402,7 +420,7 @@ export function Hexic({ main, onCleanup }) {
 
   function updateHUD() {
     scoreEl.textContent = String(score);
-    bestEl.textContent = 'Best: ' + best;
+    bestEl.textContent = `Best: ${best} · Moves: ${moves}`;
   }
 
   let lastTime = 0;
@@ -471,33 +489,28 @@ export function Hexic({ main, onCleanup }) {
   }
 
   function startGame() {
-    initGrid();
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        let col;
-        let ok = false;
-        while (!ok) {
-          col = Math.floor(Math.random() * N_COLORS);
-          let dup = false;
-          for (const [nr, nc] of neighbors(r, c)) {
-            if (nr < r || (nr === r && nc < c)) continue;
-            if (grid[nr][nc].color === col) { dup = true; break; }
-          }
-          if (!dup || neighbors(r, c).every(([nr, nc]) => !inBounds(nr, nc) || grid[nr][nc].color === EMPTY)) {
-            ok = true;
-          }
+    do {
+      initGrid();
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          set(r, c, Math.floor(Math.random() * N_COLORS));
+          grid[r][c].baseY = hexY(r, c);
         }
-        set(r, c, col);
-        grid[r][c].baseY = hexY(r, c);
       }
-    }
-    score = 0; over = false; combo = 0;
-    sel = null; anim = null; dropping = false; particles = [];
+    } while (findMatchedTrails().any || !hasValidMoves());
+    score = 0; moves = 0; over = false; combo = 0;
+    sel = null; hint = null; anim = null; dropping = false; particles = [];
     updateHUD();
     sizeCanvas();
   }
 
   resetBtn.addEventListener('click', () => { startGame(); resetBtn.blur(); });
+  hintBtn.addEventListener('click', () => {
+    if (over || isAnimating()) return;
+    hint = findValidMove();
+    if (hint) updateHUD();
+    hintBtn.blur();
+  });
 
   canvas.addEventListener('pointerdown', onPointerDown);
 
