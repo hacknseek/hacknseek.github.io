@@ -20,7 +20,8 @@
     { "name": "Metronome",  "url": "./#metronome",  "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Tuner",      "url": "./#tuner",      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Timer",      "url": "./#timer",      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tap Tempo",  "url": "./#tap-tempo",  "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Tap Tempo",  "url": "./#tap-tempo",  "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Hexic",     "url": "./#hexic",      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
   ],
   "prefer_related_applications": false
 }

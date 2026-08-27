@@ -4,6 +4,7 @@ import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
 import { TimerApp } from './apps/timer.js';
 import { TapTempo } from './apps/tap-tempo.js';
+import { Hexic } from './apps/hexic.js';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
 
@@ -12,6 +13,7 @@ const APPS = [
   { id: 'tuner', name: 'Tuner', desc: 'Chromatic tuner using your microphone, with cents readout and pitch history.', icon: icons.tuner, render: Tuner },
   { id: 'timer', name: 'Timer', desc: 'Countdown plus HIIT, Tabata and EMOM interval presets with audio alerts.', icon: icons.timer, render: TimerApp },
   { id: 'tap-tempo', name: 'Tap Tempo', desc: "Find a song's BPM by tapping along with the beat.", icon: icons.tap, render: TapTempo },
+  { id: 'hexic', name: 'Hexic', desc: 'Classic MSN hex-puzzle: swap pieces to line up 3+ of a color.', icon: icons.hex, render: Hexic },
 ];
 
 const root = document.getElementById('app');

@@ -1,4 +1,4 @@
-const VERSION = 'hns-v5';
+const VERSION = 'hns-v6';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const SHELL = [
   './js/apps/tuner.js',
   './js/apps/timer.js',
   './js/apps/tap-tempo.js',
+  './js/apps/hexic.js',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',

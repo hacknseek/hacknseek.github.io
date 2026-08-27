@@ -614,6 +614,22 @@ footer.foot {
   padding-top: 12px;
 }
 
+.hexic-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+canvas.hexic-board {
+  width: 100%;
+  max-width: 460px;
+  touch-action: none;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow);
+  aspect-ratio: 1 / 1.18;
+}
+
 @media (max-width: 480px) {
   .hero {
     padding: 18px;
