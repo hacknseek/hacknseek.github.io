@@ -185,8 +185,9 @@ export function Hexic({ main, onCleanup }) {
         let cl;
         do { cl = Math.floor(Math.random() * N_COLORS); } while (false);
         set(r, c, cl);
-        grid[r][c].baseY = hexY(-1 - y, c);
-        grid[r][c].py = grid[r][c].baseY - hexY(r, c);
+        const spawnY = hexY(-1 - y, c);
+        grid[r][c].baseY = hexY(r, c);
+        grid[r][c].py = spawnY - grid[r][c].baseY;
         grid[r][c].vy = 0;
         y++;
         filled = true;
@@ -232,7 +233,9 @@ export function Hexic({ main, onCleanup }) {
     if (isAnimating()) return;
     const hadMatch = clearMatched();
     if (hadMatch) {
-      drop(); fillTop();
+      const moved = drop();
+      const filled = fillTop();
+      dropping = moved || filled;
       clearTimeout(stepTimer);
       stepTimer = setTimeout(() => {
         stepTimer = 0;
@@ -288,9 +291,8 @@ export function Hexic({ main, onCleanup }) {
 
   function onPointerDown(e) {
     const rect = canvas.getBoundingClientRect();
-    const k = BW / rect.width;
-    const px = (e.clientX - rect.left) * k;
-    const py = (e.clientY - rect.top) * k;
+    const px = (e.clientX - rect.left - canvas.clientLeft) * BW / canvas.clientWidth;
+    const py = (e.clientY - rect.top - canvas.clientTop) * BH / canvas.clientHeight;
     const h = pixelToHex(px, py);
     if (h) {
       focused = h;
@@ -346,12 +348,13 @@ export function Hexic({ main, onCleanup }) {
   let ctx2d;
   function sizeCanvas() {
     const dpr = devicePixelRatio || 1;
-    const cw = canvas.clientWidth || BW;
-    const scale = Math.min((cw - 20) / BW, 1);
+    const available = canvas.parentElement?.clientWidth || canvas.clientWidth || BW;
+    const scale = Math.min(Math.max((available - 20) / BW, 0.5), 1);
     const w = Math.round(BW * scale);
     const h = Math.round(BH * scale);
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
+    canvas.width = Math.round(BW * dpr);
+    canvas.height = Math.round(BH * dpr);
+    canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
     ctx2d = canvas.getContext('2d');
     ctx2d.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
@@ -377,8 +380,8 @@ export function Hexic({ main, onCleanup }) {
 
   function draw() {
     if (!ctx2d) return;
-    const w = canvas.width / (devicePixelRatio || 1);
-    const h = canvas.height / (devicePixelRatio || 1);
+    const w = BW;
+    const h = BH;
     ctx2d.clearRect(0, 0, w, h);
 
     for (let r = 0; r < ROWS; r++) {

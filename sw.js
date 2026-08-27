@@ -1,4 +1,4 @@
-const VERSION = 'hns-v8';
+const VERSION = 'hns-v9';
 const SHELL = [
   './',
   './index.html',
