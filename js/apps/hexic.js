@@ -2,16 +2,15 @@ import { el, store, viewHead, toast } from '../dom.js';
 
 // Hexic is played on a pointy-top axial hex grid. A normal move rotates the
 // three hexes which meet at one vertex; it never swaps a pair of tiles.
+// The original layout is a compact, square staggered honeycomb.
+// Rows are offset by half a cell; they are not cumulatively shifted into
+// a rhombus. This keeps the playfield close to the classic square silhouette.
 const ROWS = 8;
-const COLS = 7;
+const COLS = 8;
 const N_COLORS = 6;
 const COLORS = ['#f87171', '#4ade80', '#60a5fa', '#fbbf24', '#c084fc', '#fb923c'];
 const EMPTY = null;
 
-// Clockwise around a tile: E, NE, NW, W, SW, SE.
-const HEX_DIRS = [
-  [1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1],
-];
 const SQRT3 = Math.sqrt(3);
 
 function hexCorner(cx, cy, r, i) {
@@ -42,7 +41,7 @@ export function Hexic({ main, onCleanup }) {
   const STEP_X = SQRT3 * R;
   const STEP_Y = R * 1.5;
   const ROW_OFFSET_X = STEP_X / 2;
-  const BW = BORDER * 2 + R * 2 + STEP_X * (COLS - 1) + ROW_OFFSET_X * (ROWS - 1);
+  const BW = BORDER * 2 + R * 2 + STEP_X * (COLS - 1) + ROW_OFFSET_X;
   const BH = BORDER * 2 + R * 2 + STEP_Y * (ROWS - 1);
 
   const root = main;
@@ -80,11 +79,12 @@ export function Hexic({ main, onCleanup }) {
     rotateCcwBtn, rotateCwBtn, pearlBtn,
   ]);
   const boardWrap = el('div', { className: 'hexic-wrap' }, [canvas]);
-  root.append(
+  const gameLayout = el('div', { className: 'hexic-layout' }, [
     boardWrap,
-    hud,
-    statusEl,
-    controls,
+    el('div', { className: 'hexic-side' }, [hud, statusEl, controls]),
+  ]);
+  root.append(
+    gameLayout,
     el('div', { className: 'row' }, [resetBtn, hintBtn]),
     el('div', { className: 'muted hexic-help' },
       'Choose the shared corner of three tiles, then rotate them. Three touching colors clear; six matching tiles around a different center create a silver star. Stars make larger rotations, and six stars create a black pearl.'
@@ -105,14 +105,28 @@ export function Hexic({ main, onCleanup }) {
     return inBounds(r, c) ? grid[r][c] : null;
   }
 
+  // Clockwise around a pointy-top tile: E, SE, SW, W, NW, NE. The column
+  // offset for a diagonal neighbor depends on whether this row is staggered.
+  function neighborPositions(r, c) {
+    const staggered = r % 2 === 1;
+    return [
+      [r, c + 1],
+      [r + 1, c + (staggered ? 1 : 0)],
+      [r + 1, c + (staggered ? 0 : -1)],
+      [r, c - 1],
+      [r - 1, c + (staggered ? 0 : -1)],
+      [r - 1, c + (staggered ? 1 : 0)],
+    ];
+  }
+
   function neighbors(r, c) {
-    return HEX_DIRS
-      .map(([dc, dr]) => ({ r: r + dr, c: c + dc }))
-      .filter(({ r: nr, c: nc }) => inBounds(nr, nc));
+    return neighborPositions(r, c)
+      .filter(([nr, nc]) => inBounds(nr, nc))
+      .map(([nr, nc]) => grid[nr][nc]);
   }
 
   function hexX(r, c) {
-    return BORDER + R + STEP_X * c + ROW_OFFSET_X * r;
+    return BORDER + R + STEP_X * c + ROW_OFFSET_X * (r % 2);
   }
 
   function hexY(r) {
@@ -173,13 +187,14 @@ export function Hexic({ main, onCleanup }) {
     const groups = [];
     const seen = new Set();
     for (const center of allCells()) {
-      for (let i = 0; i < HEX_DIRS.length; i++) {
-        const [dc1, dr1] = HEX_DIRS[i];
-        const [dc2, dr2] = HEX_DIRS[(i + 1) % HEX_DIRS.length];
+      const around = neighborPositions(center.r, center.c);
+      for (let i = 0; i < around.length; i++) {
+        const [r1, c1] = around[i];
+        const [r2, c2] = around[(i + 1) % around.length];
         const cells = [
           center,
-          cellAt(center.r + dr1, center.c + dc1),
-          cellAt(center.r + dr2, center.c + dc2),
+          cellAt(r1, c1),
+          cellAt(r2, c2),
         ];
         if (cells.some((cell) => !cell)) continue;
         const id = cells.map((cell) => key(cell.r, cell.c)).sort().join('|');
@@ -208,7 +223,9 @@ export function Hexic({ main, onCleanup }) {
       const d = cellDistance(px, py, cell);
       if (d < distance) { distance = d; result = cell; }
     }
-    return distance <= R * 0.78 ? result : null;
+    // A touch often lands in the narrow seam between two gems. Resolve the
+    // nearest gem as long as the pointer is still inside its touch halo.
+    return distance <= R * 1.18 ? result : null;
   }
 
   function closestTriangle(px, py) {
@@ -224,6 +241,19 @@ export function Hexic({ main, onCleanup }) {
     // cursor needs a forgiving hit area so selecting from a tile center still
     // picks the nearest shared vertex.
     return distance <= R * 1.8 ? result : null;
+  }
+
+  function closestTriangleForCell(px, py, cell) {
+    let result = null;
+    let distance = Infinity;
+    for (const group of triangleGroups()) {
+      if (!group.cells.includes(cell)) continue;
+      const dx = px - group.point.x;
+      const dy = py - group.point.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < distance) { distance = d; result = group; }
+    }
+    return result;
   }
 
   function selectForCell(cell) {
@@ -244,12 +274,19 @@ export function Hexic({ main, onCleanup }) {
   }
 
   function selectAtPoint(px, py) {
-    const specialCell = closestCell(px, py);
-    if (specialCell?.tile?.type === 'star' || specialCell?.tile?.type === 'pearl') {
-      selectForCell(specialCell);
+    const cell = closestCell(px, py);
+    const directGroup = closestTriangle(px, py);
+    const cellGroup = cell ? closestTriangleForCell(px, py, cell) : null;
+    const group = cell
+      ? (directGroup?.cells.includes(cell)
+        ? directGroup
+        : cellGroup)
+      : directGroup;
+
+    if (cell?.tile?.type === 'star' || cell?.tile?.type === 'pearl') {
+      selectForCell(cell);
       return;
     }
-    const group = closestTriangle(px, py);
     if (group) {
       selected = { kind: 'triad', group };
       hint = null;
@@ -625,8 +662,16 @@ export function Hexic({ main, onCleanup }) {
     if (over || turnRunning || animation || dropAnimation) return;
     canvas.setPointerCapture?.(event.pointerId);
     const rect = canvas.getBoundingClientRect();
-    const px = (event.clientX - rect.left) * BW / rect.width;
-    const py = (event.clientY - rect.top) * BH / rect.height;
+    // `rect` includes the canvas border. Subtract it before converting CSS
+    // pixels to the logical canvas coordinates, otherwise the error grows
+    // toward the lower-right corner on a scaled mobile canvas.
+    const styles = getComputedStyle(canvas);
+    const borderX = (parseFloat(styles.borderLeftWidth) || 0) + (parseFloat(styles.borderRightWidth) || 0);
+    const borderY = (parseFloat(styles.borderTopWidth) || 0) + (parseFloat(styles.borderBottomWidth) || 0);
+    const contentWidth = Math.max(1, rect.width - borderX);
+    const contentHeight = Math.max(1, rect.height - borderY);
+    const px = (event.clientX - rect.left - (parseFloat(styles.borderLeftWidth) || 0)) * BW / contentWidth;
+    const py = (event.clientY - rect.top - (parseFloat(styles.borderTopWidth) || 0)) * BH / contentHeight;
     focused = closestCell(px, py) || focused;
     selectAtPoint(px, py);
     canvas.focus({ preventScroll: true });
@@ -696,9 +741,12 @@ export function Hexic({ main, onCleanup }) {
   function sizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const available = canvas.parentElement?.clientWidth || BW;
-    const scale = Math.min(Math.max((available - 10) / BW, 0.48), 1);
-    canvas.width = Math.round(BW * dpr);
-    canvas.height = Math.round(BH * dpr);
+    const scale = Math.min(Math.max((available - 8) / BW, 0.44), 1);
+    // The CSS size already applies the responsive scale. Match the backing
+    // bitmap to that size so the browser does not scale the drawing a second
+    // time after the context transform below.
+    canvas.width = Math.round(BW * dpr * scale);
+    canvas.height = Math.round(BH * dpr * scale);
     canvas.style.width = Math.round(BW * scale) + 'px';
     canvas.style.height = Math.round(BH * scale) + 'px';
     ctx2d = canvas.getContext('2d');
@@ -977,8 +1025,15 @@ export function Hexic({ main, onCleanup }) {
   canvas.addEventListener('pointerdown', onPointerDown);
   canvas.addEventListener('keydown', onKeyDown);
   window.addEventListener('resize', sizeCanvas);
+  const boardResizeObserver = typeof ResizeObserver === 'function'
+    ? new ResizeObserver(() => sizeCanvas())
+    : null;
+  boardResizeObserver?.observe(boardWrap);
 
   startGame();
+  // The grid can settle after the first render (especially when switching
+  // between the desktop side panel and the mobile stacked layout).
+  requestAnimationFrame(sizeCanvas);
   lastTime = performance.now();
   rafId = requestAnimationFrame(tick);
 
@@ -989,5 +1044,6 @@ export function Hexic({ main, onCleanup }) {
     canvas.removeEventListener('pointerdown', onPointerDown);
     canvas.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('resize', sizeCanvas);
+    boardResizeObserver?.disconnect();
   });
 }

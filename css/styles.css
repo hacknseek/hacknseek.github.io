@@ -618,13 +618,30 @@ footer.foot {
   display: flex;
   justify-content: center;
   overflow-x: auto;
+  min-width: 0;
+}
+
+.hexic-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 142px;
+  gap: 16px;
+  align-items: center;
+}
+
+.hexic-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 canvas.hexic-board {
   width: 100%;
-  max-width: 560px;
+  max-width: 700px;
   flex: none;
   touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.22);
@@ -632,7 +649,9 @@ canvas.hexic-board {
 }
 
 .hexic-hud {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .hexic-stats {
@@ -647,8 +666,12 @@ canvas.hexic-board {
 }
 
 .hexic-controls {
-  justify-content: center;
+  justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+.hexic-side .hexic-status {
+  text-align: right;
 }
 
 .hexic-help {
@@ -661,6 +684,20 @@ canvas.hexic-board {
   }
   .panel {
     padding: 16px;
+  }
+  .hexic-wrap {
+    justify-content: flex-start;
+  }
+  .hexic-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hexic-side {
+    gap: 10px;
+  }
+  .hexic-side .hexic-status,
+  .hexic-controls {
+    justify-content: center;
+    text-align: center;
   }
   .btn.play {
     width: 76px;
