@@ -617,17 +617,42 @@ footer.foot {
 .hexic-wrap {
   display: flex;
   justify-content: center;
+  overflow-x: auto;
 }
 
 canvas.hexic-board {
   width: 100%;
-  max-width: 460px;
+  max-width: 560px;
+  flex: none;
   touch-action: none;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   background: rgba(0, 0, 0, 0.22);
   box-shadow: var(--shadow);
-  aspect-ratio: 1 / 1.18;
+}
+
+.hexic-hud {
+  align-items: flex-start;
+}
+
+.hexic-stats {
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 0.85rem;
+}
+
+.hexic-status {
+  min-height: 1.5em;
+  text-align: center;
+}
+
+.hexic-controls {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hexic-help {
+  font-size: 0.85rem;
 }
 
 @media (max-width: 480px) {
