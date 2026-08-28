@@ -1,6 +1,6 @@
 import { el, store, viewHead, toast } from '../dom.js';
 
-// Hexic is played on a pointy-top axial hex grid. A normal move rotates the
+// Hexic is played on a flat-top offset hex grid. A normal move rotates the
 // three hexes which meet at one vertex; it never swaps a pair of tiles.
 // The original layout is a compact, square staggered honeycomb.
 // Rows are offset by half a cell; they are not cumulatively shifted into
@@ -30,6 +30,7 @@ export function Hexic({ main, onCleanup }) {
   let dropAnimation = null;
   let particles = [];
   let over = false;
+  let won = false;
   let hint = null;
   let turnRunning = false;
   let pearlPattern = 0;
@@ -87,7 +88,7 @@ export function Hexic({ main, onCleanup }) {
     gameLayout,
     el('div', { className: 'row' }, [resetBtn, hintBtn]),
     el('div', { className: 'muted hexic-help' },
-      'Choose the shared corner of three tiles, then rotate them. Three touching colors clear; six matching tiles around a different center create a silver star. Stars make larger rotations, and six stars create a black pearl.'
+       'Choose the shared corner of three tiles, then rotate them. Three same-colored tiles that all touch one another clear; six matching tiles around a different center create a silver star. Bonus stars clear nearby tiles, silver stars rotate rings, and six silver stars create a black pearl.'
     )
   );
 
@@ -105,7 +106,7 @@ export function Hexic({ main, onCleanup }) {
     return inBounds(r, c) ? grid[r][c] : null;
   }
 
-  // Clockwise around a pointy-top tile: E, SE, SW, W, NW, NE. The column
+  // Clockwise around a flat-top tile: E, SE, SW, W, NW, NE. The column
   // offset for a diagonal neighbor depends on whether this row is staggered.
   function neighborPositions(r, c) {
     const staggered = r % 2 === 1;
@@ -133,8 +134,8 @@ export function Hexic({ main, onCleanup }) {
     return BORDER + R + STEP_Y * r;
   }
 
-  function makeTile(color = Math.floor(Math.random() * N_COLORS)) {
-    return { type: 'normal', color, bomb: 0 };
+  function makeTile(color = Math.floor(Math.random() * N_COLORS), multiplier = false) {
+    return { type: 'normal', color, bomb: 0, multiplier };
   }
 
   function makeSpecial(type) {
@@ -363,22 +364,51 @@ export function Hexic({ main, onCleanup }) {
     spin();
   }
 
-  function component(start, predicate, visited) {
-    const result = [];
-    const queue = [start];
-    visited.add(key(start.r, start.c));
-    while (queue.length) {
-      const cell = queue.shift();
-      result.push(cell);
-      for (const next of neighbors(cell.r, cell.c)) {
-        const id = key(next.r, next.c);
-        const nextCell = cellAt(next.r, next.c);
-        if (visited.has(id) || !predicate(nextCell)) continue;
-        visited.add(id);
-        queue.push(nextCell);
+  // A Hexic cluster is made from one or more triangular groups. A merely
+  // connected chain is not enough: in every matching trio, all three tiles
+  // must touch one another around a shared vertex.
+  function triangleComponents(predicate, blocked = new Set()) {
+    const groups = triangleGroups().filter((group) => group.cells.every((cell) => {
+      const id = key(cell.r, cell.c);
+      return !blocked.has(id) && predicate(cell);
+    }));
+    const parent = new Map();
+    const cellsById = new Map();
+
+    const find = (id) => {
+      let root = id;
+      while (parent.get(root) !== root) root = parent.get(root);
+      while (parent.get(id) !== id) {
+        const next = parent.get(id);
+        parent.set(id, root);
+        id = next;
       }
+      return root;
+    };
+    const union = (a, b) => {
+      const rootA = find(a);
+      const rootB = find(b);
+      if (rootA !== rootB) parent.set(rootB, rootA);
+    };
+
+    for (const group of groups) {
+      const ids = group.cells.map((cell) => {
+        const id = key(cell.r, cell.c);
+        if (!parent.has(id)) parent.set(id, id);
+        cellsById.set(id, cell);
+        return id;
+      });
+      union(ids[0], ids[1]);
+      union(ids[0], ids[2]);
     }
-    return result;
+
+    const components = new Map();
+    for (const id of parent.keys()) {
+      const root = find(id);
+      if (!components.has(root)) components.set(root, []);
+      components.get(root).push(cellsById.get(id));
+    }
+    return [...components.values()];
   }
 
   function flowerEvents() {
@@ -388,11 +418,11 @@ export function Hexic({ main, onCleanup }) {
       const ring = neighbors(center.r, center.c);
       if (ring.length !== 6) continue;
       const centerTile = center.tile;
-      if (centerTile?.type === 'normal') {
-        const colors = ring.map((cell) => tileColor(cell));
-        if (colors[0] != null && colors.every((color) => color === colors[0]) && colors[0] !== centerTile.color) {
-          flowers.push({ center, ring, color: colors[0] });
-        }
+      const colors = ring.map((cell) => tileColor(cell));
+      const isLikeColoredRing = colors[0] != null && colors.every((color) => color === colors[0]);
+      if (centerTile && isLikeColoredRing &&
+        (centerTile.type !== 'normal' || colors[0] !== centerTile.color)) {
+        flowers.push({ center, ring, color: colors[0], centerType: centerTile.type });
       }
       if (centerTile?.type === 'normal' && ring.every((cell) => cell.tile?.type === 'star')) {
         pearlFlowers.push({ center, ring });
@@ -401,12 +431,27 @@ export function Hexic({ main, onCleanup }) {
     return { flowers, pearlFlowers };
   }
 
+  function blackPearlEvents() {
+    const flowers = [];
+    const clusters = triangleComponents((cell) => cell.tile?.type === 'pearl');
+    for (const center of allCells()) {
+      const ring = neighbors(center.r, center.c);
+      if (ring.length === 6 && ring.every((cell) => cell.tile?.type === 'pearl')) {
+        flowers.push({ center, ring });
+      }
+    }
+    return { flowers, clusters };
+  }
+
   function findResolutionEvents() {
     const { flowers, pearlFlowers } = flowerEvents();
+    const blackPearls = blackPearlEvents();
     const clear = new Set();
     const transformed = new Map();
+    let starDrops = 0;
     for (const event of flowers) {
-      transformed.set(key(event.center.r, event.center.c), 'star');
+      if (event.centerType === 'star') starDrops++;
+      else transformed.set(key(event.center.r, event.center.c), 'star');
       for (const cell of event.ring) clear.add(key(cell.r, cell.c));
     }
     for (const event of pearlFlowers) {
@@ -415,50 +460,82 @@ export function Hexic({ main, onCleanup }) {
     }
 
     const normalClusters = [];
-    const visitedColors = new Set();
-    for (const cell of allCells()) {
-      const id = key(cell.r, cell.c);
-      if (visitedColors.has(id) || clear.has(id) || transformed.has(id) || cell.tile?.type !== 'normal') continue;
-      const color = cell.tile.color;
-      const cluster = component(cell, (next) => {
-        const nextId = key(next.r, next.c);
-        return !clear.has(nextId) && !transformed.has(nextId) && next.tile?.type === 'normal' && next.tile.color === color;
-      }, visitedColors);
-      if (cluster.length >= 3) {
+    for (let color = 0; color < N_COLORS; color++) {
+      const clusters = triangleComponents((cell) => {
+        return cell.tile?.type === 'normal' && cell.tile.color === color;
+      }, new Set([...clear, ...transformed.keys()]));
+      for (const cluster of clusters) {
+        cluster.hasMultiplier = cluster.some((match) => match.tile.multiplier);
+        cluster.bombColors = [...new Set(
+          cluster.filter((match) => match.tile.bomb > 0).map((match) => match.tile.color)
+        )];
         normalClusters.push(cluster);
         for (const match of cluster) clear.add(key(match.r, match.c));
       }
     }
 
-    const starClusters = [];
-    const visitedStars = new Set();
-    for (const cell of allCells()) {
-      const id = key(cell.r, cell.c);
-      if (visitedStars.has(id) || clear.has(id) || transformed.has(id) || cell.tile?.type !== 'star') continue;
-      const cluster = component(cell, (next) => {
-        const nextId = key(next.r, next.c);
-        return !clear.has(nextId) && !transformed.has(nextId) && next.tile?.type === 'star';
-      }, visitedStars);
-      if (cluster.length >= 3) {
-        starClusters.push(cluster);
-        for (const match of cluster) {
-          clear.add(key(match.r, match.c));
+    // Bonus-star tiles can form a cluster regardless of their colour. They
+    // clear their neighbouring tiles, and a bomb matched with a bonus star
+    // clears every normal tile of the bomb's colour.
+    const multiplierClusters = [];
+    multiplierClusters.push(...triangleComponents(
+      (cell) => cell.tile?.type === 'normal' && cell.tile.multiplier,
+      new Set([...clear, ...transformed.keys()])
+    ));
+
+    const bonusSources = [
+      ...normalClusters.filter((cluster) => cluster.hasMultiplier),
+      ...multiplierClusters,
+    ];
+    for (const cluster of bonusSources) {
+      for (const match of cluster) {
+        if (match.tile.multiplier) {
           for (const nearby of neighbors(match.r, match.c)) {
             if (nearby.tile) clear.add(key(nearby.r, nearby.c));
           }
+        }
+      }
+      for (const bombColor of cluster
+        .filter((match) => match.tile.bomb > 0)
+        .map((match) => match.tile.color)) {
+        if (!cluster.some((match) => match.tile.multiplier && match.tile.color === bombColor)) continue;
+        for (const cell of allCells()) {
+          if (cell.tile?.type === 'normal' && cell.tile.color === bombColor) {
+            clear.add(key(cell.r, cell.c));
+          }
+        }
+      }
+    }
+
+    const starClusters = [];
+    for (const cluster of triangleComponents(
+      (cell) => cell.tile?.type === 'star',
+      new Set([...clear, ...transformed.keys()])
+    )) {
+      starClusters.push(cluster);
+      for (const match of cluster) {
+        clear.add(key(match.r, match.c));
+        for (const nearby of neighbors(match.r, match.c)) {
+          if (nearby.tile) clear.add(key(nearby.r, nearby.c));
         }
       }
     }
 
     for (const id of transformed.keys()) clear.delete(id);
     return {
-      hasEvents: clear.size > 0 || transformed.size > 0,
+      hasEvents: clear.size > 0 || transformed.size > 0 ||
+        blackPearls.flowers.length > 0 || blackPearls.clusters.length > 0,
       clear,
       transformed,
       flowers,
       pearlFlowers,
+      blackPearlFlowers: blackPearls.flowers,
+      blackPearlClusters: blackPearls.clusters,
+      starDrops,
       normalClusters,
+      multiplierClusters,
       starClusters,
+      victory: blackPearls.flowers.length > 0 || blackPearls.clusters.length > 0,
     };
   }
 
@@ -508,10 +585,10 @@ export function Hexic({ main, onCleanup }) {
       cell.tile = makeSpecial(type);
     }
     updateHUD();
-    collapseAndFill();
+    collapseAndFill(events.starDrops);
   }
 
-  function collapseAndFill() {
+  function collapseAndFill(starDrops = 0) {
     const movesForAnimation = [];
     for (let c = 0; c < COLS; c++) {
       const existing = [];
@@ -529,6 +606,7 @@ export function Hexic({ main, onCleanup }) {
         movesForAnimation.push({
           cell: grid[r][c],
           tile,
+          newTile: !entry,
           from: { x: hexX(r, c), y: hexY(sourceR) },
           to: { x: hexX(r, c), y: hexY(r) },
         });
@@ -536,16 +614,49 @@ export function Hexic({ main, onCleanup }) {
     }
 
     maybeSpawnBomb(movesForAnimation);
+    maybeSpawnStarDrops(movesForAnimation, starDrops);
+    maybeSpawnMultiplier(movesForAnimation);
     dropAnimation = { moves: movesForAnimation, t: 0, dur: 300 };
   }
 
   function maybeSpawnBomb(dropMoves) {
     if (moves < 5 || allCells().some((cell) => cell.tile?.bomb > 0) || Math.random() > Math.min(0.2, 0.04 + moves * 0.008)) return;
-    const candidates = dropMoves.filter(({ tile }) => tile?.type === 'normal' && !tile.bomb);
+    const candidates = dropMoves.filter(({ tile }) =>
+      tile?.type === 'normal' && !tile.bomb && !tile.multiplier
+    );
     if (!candidates.length) return;
     const picked = candidates[Math.floor(Math.random() * candidates.length)];
     picked.tile.bomb = 7 + Math.floor(Math.random() * 5);
     toast('A bomb appeared — clear it before its counter reaches zero!', 2600);
+  }
+
+  function maybeSpawnStarDrops(dropMoves, count) {
+    if (!count) return;
+    const candidates = dropMoves.filter(({ tile, newTile }) =>
+      newTile && tile?.type === 'normal' && !tile.bomb
+    );
+    if (!candidates.length) return;
+    for (let i = 0; i < count && candidates.length; i++) {
+      // A silver star made around an existing silver star drops a new star
+      // from the top, so prefer the highest newly created slot in each column.
+      candidates.sort((a, b) => a.cell.r - b.cell.r || a.cell.c - b.cell.c);
+      const index = 0;
+      const picked = candidates.splice(index, 1)[0];
+      picked.tile = makeSpecial('star');
+      picked.cell.tile = picked.tile;
+    }
+    toast('A silver star dropped from the top.', 1800);
+  }
+
+  function maybeSpawnMultiplier(dropMoves) {
+    if (moves < 3 || Math.random() > Math.min(0.18, 0.05 + moves * 0.006)) return;
+    const candidates = dropMoves.filter(({ tile, newTile }) =>
+      newTile && tile?.type === 'normal' && !tile.bomb
+    );
+    if (!candidates.length) return;
+    const picked = candidates[Math.floor(Math.random() * candidates.length)];
+    picked.tile.multiplier = true;
+    toast('A bonus star appeared.', 1800);
   }
 
   function markBombsBeforeTurn() {
@@ -565,9 +676,8 @@ export function Hexic({ main, onCleanup }) {
     if (over) return;
     const bombExpired = decrementBombs();
     if (bombExpired) {
-      over = true;
-      statusEl.textContent = 'A bomb exploded.';
-      toast('Bomb exploded — game over.', 2400);
+      finishGame(false);
+      return;
     } else if (!hasValidMoves()) {
       over = true;
       statusEl.textContent = 'No more rotations can make a match.';
@@ -580,9 +690,26 @@ export function Hexic({ main, onCleanup }) {
     draw();
   }
 
+  function finishGame(winner) {
+    over = true;
+    won = winner;
+    statusEl.textContent = winner
+      ? 'Black pearl combo — you win!'
+      : 'A bomb exploded.';
+    toast(winner ? 'Black pearl combo — you win!' : 'Bomb exploded — game over.', 2400);
+    combo = 0;
+    turnRunning = false;
+    updateHUD();
+    draw();
+  }
+
   function resolveCascade() {
     if (animation || dropAnimation || over) return;
     const events = findResolutionEvents();
+    if (events.victory) {
+      finishGame(true);
+      return;
+    }
     if (events.hasEvents) {
       applyResolution(events);
       return;
@@ -813,6 +940,10 @@ export function Hexic({ main, onCleanup }) {
         ctx2d.arc(x, y, R * 0.7, 0, Math.PI * 2);
         ctx2d.stroke();
       }
+      if (tile.multiplier && tile.bomb <= 0) {
+        ctx2d.shadowBlur = 0;
+        drawStar(x, y, R * 0.34, R * 0.14);
+      }
     } else if (tile.type === 'star') {
       const gradient = ctx2d.createRadialGradient(x - 7, y - 8, 2, x, y, R);
       gradient.addColorStop(0, '#ffffff');
@@ -929,7 +1060,7 @@ export function Hexic({ main, onCleanup }) {
       ctx2d.fillStyle = '#e7ecf3';
       ctx2d.font = '700 30px ui-sans-serif, system-ui, sans-serif';
       ctx2d.textAlign = 'center';
-      ctx2d.fillText('Game Over', BW / 2, BH / 2 - 14);
+      ctx2d.fillText(won ? 'You Win!' : 'Game Over', BW / 2, BH / 2 - 14);
       ctx2d.font = '500 16px ui-sans-serif, system-ui, sans-serif';
       ctx2d.fillStyle = '#9aa3b2';
       ctx2d.fillText('Score: ' + score, BW / 2, BH / 2 + 14);
@@ -977,6 +1108,7 @@ export function Hexic({ main, onCleanup }) {
     moves = 0;
     combo = 0;
     over = false;
+    won = false;
     selected = null;
     hint = null;
     animation = null;
