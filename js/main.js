@@ -4,10 +4,10 @@ import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
 import { TimerApp } from './apps/timer.js';
 import { TapTempo } from './apps/tap-tempo.js';
-import { Hexic } from './apps/hexic.js?v=1.0.15';
+import { Hexic } from './apps/hexic.js?v=1.0.16';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '1.0.15';
+const APP_VERSION = '1.0.16';
 
 const APPS = [
   { id: 'metronome', name: 'Metronome', desc: 'Click track for practice: 30\u2013260 BPM, time signatures, five sounds and tap tempo.', icon: icons.metro, render: Metronome },

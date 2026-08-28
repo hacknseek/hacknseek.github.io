@@ -338,30 +338,18 @@ export function Hexic({ main, onCleanup }) {
   function beginTurn(selection, direction) {
     if (over || turnRunning || animation || dropAnimation || !selection) return;
     turnRunning = true;
-    selected = null;
     hint = null;
     moves++;
     updateControls();
 
     const cells = rotationPositions(selection);
-    const maxSteps = selection.kind === 'triad' ? 3 : 1;
-    let step = 0;
-
-    const spin = () => {
-      startRotation(cells, direction, () => {
-        step++;
-        const hasMatch = findResolutionEvents().hasEvents;
-        if (hasMatch || maxSteps === 1 || step >= maxSteps) {
-          if (!hasMatch && selection.kind === 'triad') {
-            toast('No match — the three tiles return to their starting positions.');
-          }
-          resolveCascade();
-          return;
-        }
-        spin();
-      });
-    };
-    spin();
+    // One button press is exactly one 120-degree rotation. If it does not
+    // make a match, keep the same group selected so the next press can make
+    // the next step explicitly.
+    startRotation(cells, direction, () => {
+      if (findResolutionEvents().hasEvents) selected = null;
+      resolveCascade();
+    });
   }
 
   // A Hexic cluster is made from one or more triangular groups. A merely
@@ -681,11 +669,12 @@ export function Hexic({ main, onCleanup }) {
     } else if (!hasValidMoves()) {
       over = true;
       statusEl.textContent = 'No more rotations can make a match.';
-    } else {
+    } else if (!selected) {
       statusEl.textContent = 'Select a shared corner between three tiles.';
     }
     combo = 0;
     turnRunning = false;
+    updateControls();
     updateHUD();
     draw();
   }
@@ -845,7 +834,7 @@ export function Hexic({ main, onCleanup }) {
     if (!selected) {
       statusEl.textContent = over ? statusEl.textContent : 'Select a shared corner between three tiles.';
     } else if (selected.kind === 'triad') {
-      statusEl.textContent = 'Three tiles selected — choose a rotation direction.';
+      statusEl.textContent = 'Three tiles selected — each press rotates one step.';
     } else if (selected.kind === 'star') {
       statusEl.textContent = 'Silver star selected — rotate all six surrounding tiles.';
     } else {
