@@ -33,6 +33,8 @@ export function Tuner({ main, onCleanup }) {
   let buf = null;
   let rafId = 0;
   let running = false;
+  let starting = false;
+  let disposed = false;
   const history = [];
   const smoothBuf = [];
 
@@ -40,6 +42,7 @@ export function Tuner({ main, onCleanup }) {
 
   const errBox = el('div', {
     className: 'panel',
+    role: 'alert',
     hidden: true,
     style: 'border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.08)',
   });
@@ -96,7 +99,7 @@ export function Tuner({ main, onCleanup }) {
       ]),
       el('div', { className: 'panel-row' }, [el('label', { style: 'min-width:90px' }, 'Sensitivity'), sensSlider]),
       el('div', { className: 'muted', style: 'font-size:0.85rem' },
-        'Grant microphone access. HTTPS is required by most browsers. Works offline once loaded.'),
+        'Allow microphone access to begin. Audio is processed on your device and is never recorded or uploaded.'),
     ])
   );
 
@@ -115,7 +118,7 @@ export function Tuner({ main, onCleanup }) {
     const h = canvas.clientHeight || 120;
     g2d.clearRect(0, 0, w, h);
     g2d.lineWidth = 1;
-    g2d.strokeStyle = 'rgba(255,255,255,0.08)';
+    g2d.strokeStyle = 'rgba(63,100,117,0.12)';
     for (let i = 1; i <= 3; i++) {
       const y = (h / 4) * i;
       g2d.beginPath();
@@ -123,13 +126,13 @@ export function Tuner({ main, onCleanup }) {
       g2d.lineTo(w, y);
       g2d.stroke();
     }
-    g2d.strokeStyle = 'rgba(74,222,128,0.45)';
+    g2d.strokeStyle = 'rgba(66,119,91,0.35)';
     g2d.beginPath();
     g2d.moveTo(0, h / 2);
     g2d.lineTo(w, h / 2);
     g2d.stroke();
     if (history.length < 2) return;
-    g2d.strokeStyle = '#22d3ee';
+    g2d.strokeStyle = '#48758a';
     g2d.lineWidth = 2;
     g2d.beginPath();
     history.forEach((c, i) => {
@@ -151,6 +154,7 @@ export function Tuner({ main, onCleanup }) {
   }
 
   async function start() {
+    if (starting || running || disposed) return;
     clearError();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       showError('This browser does not support microphone access.');
@@ -160,15 +164,24 @@ export function Tuner({ main, onCleanup }) {
       showError('Microphone requires HTTPS or localhost.');
       return;
     }
+    starting = true;
+    startBtn.disabled = true;
+    startBtn.textContent = 'Waiting for microphone…';
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       ctx = new AC();
       if (ctx.state === 'suspended') {
         try { await ctx.resume(); } catch {}
       }
-      stream = await navigator.mediaDevices.getUserMedia({
+      if (disposed) return;
+      const requestedStream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
+      if (disposed) {
+        requestedStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      stream = requestedStream;
       const src = ctx.createMediaStreamSource(stream);
       analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
@@ -182,6 +195,7 @@ export function Tuner({ main, onCleanup }) {
       startBtn.classList.add('danger');
       detectLoop();
     } catch (err) {
+      if (disposed) return;
       teardown();
       resetDisplay();
       const messages = {
@@ -191,6 +205,10 @@ export function Tuner({ main, onCleanup }) {
         SecurityError: 'Microphone blocked by browser security settings.',
       };
       showError((err && messages[err.name]) || (err && err.message) || 'Could not start the tuner.');
+    } finally {
+      starting = false;
+      startBtn.disabled = false;
+      if (!running) startBtn.textContent = 'Start tuner';
     }
   }
 
@@ -320,10 +338,24 @@ export function Tuner({ main, onCleanup }) {
     while (peak + 1 <= maxLag && corr[peak + 1] > corr[peak]) peak++;
     bestLag = peak;
 
-    const a = corr[bestLag - 1] ?? bestCorr;
-    const c = corr[bestLag + 1] ?? bestCorr;
-    const denom = a - 2 * bestCorr + c;
-    const shift = denom ? (0.5 * (a - c)) / denom : 0;
+    // Normalize the three samples around the peak before interpolation.
+    // This avoids phase-dependent pitch drift from the finite sample window.
+    function normalizedCorrelation(lag) {
+      let product = 0;
+      let leftEnergy = 0;
+      let rightEnergy = 0;
+      for (let i = 0; i < size - lag; i++) {
+        product += sig[i] * sig[i + lag];
+        leftEnergy += sig[i] * sig[i];
+        rightEnergy += sig[i + lag] * sig[i + lag];
+      }
+      return product / Math.sqrt(leftEnergy * rightEnergy || 1);
+    }
+    const a = normalizedCorrelation(bestLag - 1);
+    const b = normalizedCorrelation(bestLag);
+    const c = normalizedCorrelation(bestLag + 1);
+    const denom = a - 2 * b + c;
+    const shift = denom ? clamp(0.5 * (a - c) / denom, -1, 1) : 0;
     return sampleRate / (bestLag + shift);
   }
 
@@ -345,6 +377,7 @@ export function Tuner({ main, onCleanup }) {
   window.addEventListener('resize', sizeCanvas);
 
   onCleanup(() => {
+    disposed = true;
     window.removeEventListener('resize', sizeCanvas);
     teardown();
   });

@@ -8,7 +8,7 @@ import { el, store, viewHead, toast } from '../dom.js';
 const ROWS = 8;
 const COLS = 8;
 const N_COLORS = 6;
-const COLORS = ['#f87171', '#4ade80', '#60a5fa', '#fbbf24', '#c084fc', '#fb923c'];
+const COLORS = ['#d88d77', '#a7bd92', '#91b4ce', '#e3c16e', '#b79bc8', '#dba56e'];
 const EMPTY = null;
 
 const SQRT3 = Math.sqrt(3);
@@ -902,16 +902,12 @@ export function Hexic({ main, onCleanup }) {
     if (!tile) return;
     ctx2d.save();
     ctx2d.globalAlpha = alpha;
-    ctx2d.shadowBlur = 8;
+    ctx2d.shadowBlur = 0;
     ctx2d.shadowColor = tile.type === 'normal' ? COLORS[tile.color] : tile.type === 'star' ? '#cbd5e1' : '#020617';
 
     if (tile.type === 'normal') {
-      drawHex(x, y, R - 2, COLORS[tile.color], 'rgba(255,255,255,0.24)');
+      drawHex(x, y, R - 2, COLORS[tile.color], 'rgba(52,66,41,0.38)', 1.2);
       drawHex(x, y, R - 7, null, 'rgba(15,23,42,0.22)');
-      ctx2d.beginPath();
-      ctx2d.arc(x - R * 0.27, y - R * 0.26, R * 0.2, 0, Math.PI * 2);
-      ctx2d.fillStyle = 'rgba(255,255,255,0.24)';
-      ctx2d.fill();
       if (tile.bomb > 0) {
         ctx2d.shadowBlur = 0;
         ctx2d.beginPath();
@@ -974,12 +970,12 @@ export function Hexic({ main, onCleanup }) {
     }
     if (selected) {
       for (const cell of selectedCells()) {
-        drawHex(hexX(cell.r, cell.c), hexY(cell.r), R + 4, null, '#22d3ee', 2.5);
+        drawHex(hexX(cell.r, cell.c), hexY(cell.r), R + 4, null, '#3d6a6e', 2.5);
       }
       if (selected.kind === 'triad') {
         ctx2d.beginPath();
         ctx2d.arc(selected.group.point.x, selected.group.point.y, 5, 0, Math.PI * 2);
-        ctx2d.fillStyle = '#22d3ee';
+        ctx2d.fillStyle = '#3d6a6e';
         ctx2d.fill();
       }
     }
@@ -992,11 +988,11 @@ export function Hexic({ main, onCleanup }) {
   function draw() {
     if (!ctx2d) return;
     ctx2d.clearRect(0, 0, BW, BH);
-    ctx2d.fillStyle = 'rgba(2,6,23,0.35)';
+    ctx2d.fillStyle = '#e6e5dd';
     ctx2d.fillRect(0, 0, BW, BH);
 
     for (const cell of allCells()) {
-      drawHex(hexX(cell.r, cell.c), hexY(cell.r), R, 'rgba(255,255,255,0.035)', 'rgba(255,255,255,0.1)');
+      drawHex(hexX(cell.r, cell.c), hexY(cell.r), R, '#dddfd5', '#c7cbbf');
     }
 
     const animatedCells = new Set();

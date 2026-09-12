@@ -82,8 +82,8 @@ function createVoices(ctx, out) {
 export function Metronome({ main, onCleanup }) {
   const s = {
     bpm: clamp(store.get('metro.bpm', 120) | 0, MIN_BPM, MAX_BPM),
-    sig: store.get('metro.sig', '4/4'),
-    sound: store.get('metro.sound', 'click'),
+    sig: SIGNATURES.includes(store.get('metro.sig', '4/4')) ? store.get('metro.sig', '4/4') : '4/4',
+    sound: SOUND_NAMES.some(([id]) => id === store.get('metro.sound', 'click')) ? store.get('metro.sound', 'click') : 'click',
     volume: store.get('metro.vol', 0.6),
   };
 
@@ -91,6 +91,8 @@ export function Metronome({ main, onCleanup }) {
   let master = null;
   let voices = null;
   let running = false;
+  let starting = false;
+  let disposed = false;
   let beat = 0;
   let nextTime = 0;
   let loopId = 0;
@@ -134,22 +136,22 @@ export function Metronome({ main, onCleanup }) {
   const tapBtn = el('button', { className: 'btn' }, 'Tap to set BPM');
 
   main.append(
-    el('section', { className: 'panel' }, [
-      el('div', { className: 'col', style: 'align-items:center;gap:4px' }, [bpmValue, bpmLabel]),
-      el('div', { className: 'panel-row', style: 'gap:14px' }, [downBtn, bpmSlider, upBtn]),
-      el('div', { className: 'panel-row between' }, [
-        el('label', {}, ['Time signature ', sigSelect]),
-        el('label', {}, ['Sound ', soundSelect]),
+    el('div', { className: 'instrument-layout' }, [
+      el('section', { className: 'instrument-display', 'aria-label': 'Tempo and playback' }, [
+        el('div', { className: 'instrument-label' }, 'FIND YOUR STEADY'),
+        el('div', { className: 'col', style: 'align-items:center;gap:8px' }, [bpmValue, bpmLabel]),
+        el('div', { className: 'panel-row', style: 'flex-wrap:nowrap' }, [downBtn, bpmSlider, upBtn]),
+        dotsRow,
+        el('div', { className: 'panel-row', style: 'justify-content:center;gap:16px' }, [playBtn, resetBtn]),
       ]),
-      dotsRow,
-      el('div', { className: 'panel-row', style: 'justify-content:center;gap:14px' }, [playBtn, resetBtn]),
-      el('div', { className: 'panel-row' }, [el('label', { style: 'min-width:80px' }, 'Volume'), volSlider]),
-      el('div', {}, [el('h3', {}, 'Presets'), presetGrid]),
-      el('div', { className: 'panel-row between' }, [
-        el('span', { className: 'muted' }, 'Tip: tap along to set BPM'),
+      el('section', { className: 'panel instrument-settings', 'aria-label': 'Metronome settings' }, [
+        el('div', { className: 'panel-row between' }, [el('label', {}, ['Time signature', sigSelect])]),
+        el('div', { className: 'panel-row between' }, [el('label', {}, ['Sound', soundSelect])]),
+        el('div', { className: 'panel-row' }, [el('label', { style: 'flex:none;min-width:58px' }, 'Volume'), volSlider]),
+        el('div', {}, [el('h3', {}, 'A pace for every practice'), presetGrid]),
         tapBtn,
+        el('div', { className: 'shortcuts', innerHTML: '<kbd>Space</kbd> play / pause &nbsp; <kbd>↑</kbd> <kbd>↓</kbd> ±5 BPM &nbsp; <kbd>R</kbd> reset' }),
       ]),
-      el('div', { className: 'muted', style: 'font-size:0.85rem' }, 'Shortcuts: Space play \u00b7 \u2191/\u2193 \u00b15 BPM \u00b7 R reset'),
     ])
   );
 
@@ -205,12 +207,14 @@ export function Metronome({ main, onCleanup }) {
   }
 
   async function start() {
-    if (running) return;
+    if (running || starting || disposed) return;
+    starting = true;
     ensureAudio();
     if (ctx.state === 'suspended') {
       try { await ctx.resume(); } catch {}
     }
-    if (ctx.state !== 'running') return;
+    starting = false;
+    if (disposed || ctx.state !== 'running' || running) return;
     running = true;
     gen++;
     beat = 0;
@@ -276,7 +280,7 @@ export function Metronome({ main, onCleanup }) {
   });
 
   function onKey(e) {
-    if (e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    if (e.repeat || e.altKey || e.ctrlKey || e.metaKey || e.target?.isContentEditable || /^(INPUT|SELECT|TEXTAREA|BUTTON|A)$/.test(e.target?.tagName)) return;
     if (e.code === 'Space') {
       e.preventDefault();
       running ? stop() : start();
@@ -297,6 +301,7 @@ export function Metronome({ main, onCleanup }) {
   buildDots();
 
   onCleanup(() => {
+    disposed = true;
     document.removeEventListener('keydown', onKey);
     gen++;
     running = false;

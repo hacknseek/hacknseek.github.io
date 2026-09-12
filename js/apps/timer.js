@@ -26,6 +26,7 @@ export function TimerApp({ main, onCleanup }) {
   let phase = 'work';
   let round = 0;
   let audio = null;
+  const alarmTimeouts = new Set();
 
   main.append(viewHead('Timer', 'Countdown and interval timer'));
 
@@ -57,7 +58,7 @@ export function TimerApp({ main, onCleanup }) {
       el('label', {}, ['Minutes ', minIn]),
       el('label', {}, ['Seconds ', secIn]),
     ]),
-    el('div', { className: 'col' }, [el('h3', {}, 'Quick'), quickGrid]),
+    el('div', { className: 'col' }, [el('h3', {}, 'A little time for yourself'), quickGrid]),
   ]);
 
   const workIn = el('input', { type: 'number', min: 1, max: 3600, value: s.work, 'aria-label': 'Work seconds' });
@@ -95,10 +96,10 @@ export function TimerApp({ main, onCleanup }) {
   main.append(
     el('div', { className: 'pillset' }, [tabOnce, tabInt]),
     el('section', { className: 'panel' }, [
-      oncePanel,
-      intPanel,
       el('div', { className: 'col', style: 'align-items:center;gap:4px' }, [display, status]),
       el('div', { className: 'panel-row', style: 'justify-content:center;gap:14px' }, [playBtn, resetBtn]),
+      oncePanel,
+      intPanel,
     ])
   );
 
@@ -129,8 +130,10 @@ export function TimerApp({ main, onCleanup }) {
 
   function alarm() {
     beep(660, 0.15);
-    setTimeout(() => beep(880, 0.15), 200);
-    setTimeout(() => beep(1100, 0.3), 400);
+    for (const [frequency, duration, delay] of [[880, 0.15, 200], [1100, 0.3, 400]]) {
+      const id = setTimeout(() => { alarmTimeouts.delete(id); beep(frequency, duration); }, delay);
+      alarmTimeouts.add(id);
+    }
     try { navigator.vibrate && navigator.vibrate([120, 80, 120, 80, 300]); } catch {}
   }
 
@@ -149,6 +152,7 @@ export function TimerApp({ main, onCleanup }) {
   }
 
   function pause() {
+    if (running) remaining = Math.max(0, (endAt - performance.now()) / 1000);
     running = false;
     cancelAnimationFrame(rafId);
     setPlayIcon(false);
@@ -220,6 +224,8 @@ export function TimerApp({ main, onCleanup }) {
 
   function hardReset() {
     pause();
+    for (const id of alarmTimeouts) clearTimeout(id);
+    alarmTimeouts.clear();
     sessionActive = false;
     if (s.mode === 'once') {
       remaining = s.total;
@@ -236,14 +242,17 @@ export function TimerApp({ main, onCleanup }) {
   function applyOnce() {
     const mins = Math.max(0, parseInt(minIn.value, 10) || 0);
     const secs = Math.max(0, parseInt(secIn.value, 10) || 0) % 60;
-    s.total = Math.max(1, mins * 60 + secs);
+    s.total = clamp(mins * 60 + secs, 1, 10800);
+    minIn.value = Math.floor(s.total / 60);
+    secIn.value = s.total % 60;
     store.set('timer.total', s.total);
     hardReset();
   }
 
   function bindField(input, key, fallback, lo, hi) {
     input.addEventListener('change', () => {
-      s[key] = clamp(parseInt(input.value, 10) || fallback, lo, hi);
+      const value = parseInt(input.value, 10);
+      s[key] = clamp(Number.isFinite(value) ? value : fallback, lo, hi);
       input.value = s[key];
       store.set('timer.' + key, s[key]);
       hardReset();
@@ -254,6 +263,8 @@ export function TimerApp({ main, onCleanup }) {
     s.mode = mode;
     tabOnce.classList.toggle('is-on', mode === 'once');
     tabInt.classList.toggle('is-on', mode === 'interval');
+    tabOnce.setAttribute('aria-pressed', String(mode === 'once'));
+    tabInt.setAttribute('aria-pressed', String(mode === 'interval'));
     oncePanel.hidden = mode !== 'once';
     intPanel.hidden = mode !== 'interval';
     hardReset();
@@ -279,6 +290,8 @@ export function TimerApp({ main, onCleanup }) {
 
   onCleanup(() => {
     pause();
+    for (const id of alarmTimeouts) clearTimeout(id);
+    alarmTimeouts.clear();
     if (audio) {
       try { audio.close(); } catch {}
     }

@@ -4,7 +4,11 @@ export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
 export function el(tag, attrs = {}, children = []) {
-  const node = Object.assign(document.createElement(tag), attrs);
+  const node = document.createElement(tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key.startsWith('aria-') || key.startsWith('data-') || key === 'role' || key === 'for') node.setAttribute(key, value);
+    else node[key] = value;
+  }
   for (const child of [].concat(children)) {
     if (child == null) continue;
     node.append(child.nodeType ? child : document.createTextNode(child));

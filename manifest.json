@@ -6,8 +6,8 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0b0d12",
-  "theme_color": "#0b0d12",
+  "background_color": "#f8f7f3",
+  "theme_color": "#f8f7f3",
   "lang": "en",
   "categories": ["music", "utilities", "productivity"],
   "icons": [
