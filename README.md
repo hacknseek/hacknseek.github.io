@@ -16,8 +16,10 @@ hosted on GitHub Pages.
 - **Pitch Trace** — A live microphone pitch graph for singers and instruments.
   Detected notes enter on the right and travel left across a 5–30 second time
   window. Natural-note rows span C2–B6, octaves have distinct colors, and the
-  display can be transposed by ±12 semitones. A4 reference and sensitivity are
-  configurable; audio remains on the device.
+  display can be transposed by ±12 semitones. Switch to the one-octave detail
+  view to fold every octave onto C–B, with chromatic guide lines and highlighted
+  ±5-cent in-tune bands. A4 reference and sensitivity are configurable; audio
+  remains on the device.
 - **Timer** — Countdown and configurable work/rest intervals, including Tabata,
   HIIT, EMOM, and boxing presets. Pause/resume, audio alerts, and vibration where
   supported. Zero-second rest skips directly to the next round.

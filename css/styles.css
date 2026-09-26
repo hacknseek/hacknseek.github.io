@@ -1163,6 +1163,43 @@ canvas.graph {
   color: var(--text-dim);
 }
 
+.trace-display-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+}
+
+.trace-view-toggle {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid #d3ddd5;
+  border-radius: 7px;
+  background: #e7ede8;
+}
+
+.trace-view-btn {
+  padding: 6px 11px;
+  border-radius: 5px;
+  font: 9px var(--mono);
+  color: #667269;
+}
+
+.trace-view-btn:hover {
+  color: var(--text);
+}
+
+.trace-view-btn.is-on {
+  background: #fffefa;
+  color: #35493e;
+  box-shadow: 0 1px 4px #28302712;
+}
+
+.trace-view-hint {
+  font: 8px var(--mono);
+  color: #527e68;
+}
+
 .octave-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1699,6 +1736,10 @@ canvas.hexic-board {
   }
   .trace-current-note {
     font-size: 40px;
+  }
+  .trace-display-options {
+    width: 100%;
+    align-items: flex-start;
   }
   .octave-legend {
     justify-content: flex-start;

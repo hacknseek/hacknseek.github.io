@@ -45,7 +45,9 @@ export function PitchTrace({ main, onCleanup }) {
     sensitivity: store.get('pitch-trace.sensitivity', store.get('tuner.sens', 0.004)),
     transpose: store.get('pitch-trace.transpose', 0),
     seconds: store.get('pitch-trace.seconds', 10),
+    view: store.get('pitch-trace.view', 'range'),
   };
+  if (!['range', 'octave'].includes(s.view)) s.view = 'range';
 
   let ctx = null;
   let analyser = null;
@@ -72,10 +74,23 @@ export function PitchTrace({ main, onCleanup }) {
     currentNote,
     currentDetail,
   ]);
+  const rangeButton = el('button', {
+    className: `trace-view-btn${s.view === 'range' ? ' is-on' : ''}`,
+    'aria-pressed': String(s.view === 'range'),
+  }, 'Full range');
+  const octaveButton = el('button', {
+    className: `trace-view-btn${s.view === 'octave' ? ' is-on' : ''}`,
+    'aria-pressed': String(s.view === 'octave'),
+  }, 'One octave');
+  const viewToggle = el('div', { className: 'trace-view-toggle', role: 'group', 'aria-label': 'Pitch graph view' }, [
+    rangeButton,
+    octaveButton,
+  ]);
+  const viewHint = el('span', { className: 'trace-view-hint', hidden: s.view !== 'octave' }, 'Green bands = ±5 cents');
   const canvas = el('canvas', {
     className: 'pitch-canvas',
     role: 'img',
-    'aria-label': 'Live pitch graph. Time moves from right to left; vertical position shows pitch from C2 to B6.',
+    'aria-label': graphAriaLabel(),
   });
   const graphContext = canvas.getContext('2d');
   const legend = el('div', { className: 'octave-legend', 'aria-label': 'Octave colors' },
@@ -90,7 +105,10 @@ export function PitchTrace({ main, onCleanup }) {
   main.append(
     errBox,
     el('section', { className: 'panel pitch-stage' }, [
-      el('div', { className: 'trace-topline' }, [current, legend]),
+      el('div', { className: 'trace-topline' }, [
+        current,
+        el('div', { className: 'trace-display-options' }, [viewToggle, viewHint, legend]),
+      ]),
       canvas,
       el('div', { className: 'panel-row trace-input-row' }, [
         el('label', {}, 'Input level'),
@@ -147,9 +165,22 @@ export function PitchTrace({ main, onCleanup }) {
     return { left: width < 480 ? 42 : 52, right: 12, top: 12, bottom: 27 };
   }
 
-  function midiY(midi, height, bounds) {
+  function graphAriaLabel() {
+    return s.view === 'octave'
+      ? 'Live pitch graph in one-octave detail view. Time moves from right to left; all octaves are folded onto C through B, with in-tune bands at plus or minus 5 cents.'
+      : 'Live pitch graph in full-range view. Time moves from right to left; vertical position shows pitch from C2 to B6.';
+  }
+
+  function graphValue(midi) {
+    if (s.view === 'range') return midi;
+    return (((midi + 0.5) % 12) + 12) % 12 - 0.5;
+  }
+
+  function pitchY(midi, height, bounds) {
     const plotHeight = height - bounds.top - bounds.bottom;
-    return bounds.top + ((MAX_MIDI - midi) / (MAX_MIDI - MIN_MIDI)) * plotHeight;
+    const min = s.view === 'octave' ? -0.5 : MIN_MIDI;
+    const max = s.view === 'octave' ? 11.5 : MAX_MIDI;
+    return bounds.top + ((max - graphValue(midi)) / (max - min)) * plotHeight;
   }
 
   function drawGraph(now = performance.now()) {
@@ -165,19 +196,50 @@ export function PitchTrace({ main, onCleanup }) {
     graphContext.textAlign = 'right';
     graphContext.textBaseline = 'middle';
 
-    for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
-      const pitchClass = ((midi % 12) + 12) % 12;
-      if (!NATURAL_NOTES.has(pitchClass)) continue;
-      const y = midiY(midi, height, bounds);
-      const octave = Math.floor(midi / 12) - 1;
-      graphContext.strokeStyle = pitchClass === 0 ? 'rgba(71,82,70,.24)' : 'rgba(71,82,70,.11)';
-      graphContext.lineWidth = pitchClass === 0 ? 1.2 : 1;
-      graphContext.beginPath();
-      graphContext.moveTo(bounds.left, y);
-      graphContext.lineTo(width - bounds.right, y);
-      graphContext.stroke();
-      graphContext.fillStyle = pitchClass === 0 ? '#3f4e42' : '#7b8379';
-      graphContext.fillText(`${NOTE_NAMES[pitchClass]}${octave}`, bounds.left - 7, y);
+    if (s.view === 'octave') {
+      for (let pitchClass = 0; pitchClass < 12; pitchClass++) {
+        const bandTop = pitchY(pitchClass + 0.05, height, bounds);
+        const bandBottom = pitchY(pitchClass - 0.05, height, bounds);
+        graphContext.fillStyle = 'rgba(66,119,91,.11)';
+        graphContext.fillRect(bounds.left, bandTop, plotWidth, Math.max(2, bandBottom - bandTop));
+
+        graphContext.setLineDash([2, 4]);
+        graphContext.strokeStyle = 'rgba(71,82,70,.09)';
+        for (const offset of [-0.25, 0.25]) {
+          const guideY = pitchY(pitchClass + offset, height, bounds);
+          graphContext.beginPath();
+          graphContext.moveTo(bounds.left, guideY);
+          graphContext.lineTo(width - bounds.right, guideY);
+          graphContext.stroke();
+        }
+        graphContext.setLineDash([]);
+
+        const y = pitchY(pitchClass, height, bounds);
+        const natural = NATURAL_NOTES.has(pitchClass);
+        graphContext.strokeStyle = natural ? 'rgba(71,82,70,.29)' : 'rgba(71,82,70,.16)';
+        graphContext.lineWidth = natural ? 1.2 : 1;
+        graphContext.beginPath();
+        graphContext.moveTo(bounds.left, y);
+        graphContext.lineTo(width - bounds.right, y);
+        graphContext.stroke();
+        graphContext.fillStyle = natural ? '#3f4e42' : '#92998f';
+        graphContext.fillText(NOTE_NAMES[pitchClass].replace('#', '♯'), bounds.left - 7, y);
+      }
+    } else {
+      for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
+        const pitchClass = ((midi % 12) + 12) % 12;
+        if (!NATURAL_NOTES.has(pitchClass)) continue;
+        const y = pitchY(midi, height, bounds);
+        const octave = Math.floor(midi / 12) - 1;
+        graphContext.strokeStyle = pitchClass === 0 ? 'rgba(71,82,70,.24)' : 'rgba(71,82,70,.11)';
+        graphContext.lineWidth = pitchClass === 0 ? 1.2 : 1;
+        graphContext.beginPath();
+        graphContext.moveTo(bounds.left, y);
+        graphContext.lineTo(width - bounds.right, y);
+        graphContext.stroke();
+        graphContext.fillStyle = pitchClass === 0 ? '#3f4e42' : '#7b8379';
+        graphContext.fillText(`${NOTE_NAMES[pitchClass]}${octave}`, bounds.left - 7, y);
+      }
     }
 
     const tickStep = s.seconds <= 10 ? 2 : 5;
@@ -203,10 +265,10 @@ export function PitchTrace({ main, onCleanup }) {
       const age = now - point.time;
       if (age < 0 || age > s.seconds * 1000) continue;
       const displayMidi = frequencyToMidi(point.frequency, s.a4) + s.transpose;
-      if (displayMidi < MIN_MIDI - 0.5 || displayMidi > MAX_MIDI + 0.5) continue;
+      if (s.view === 'range' && (displayMidi < MIN_MIDI - 0.5 || displayMidi > MAX_MIDI + 0.5)) continue;
       const note = midiNote(displayMidi);
       const x = width - bounds.right - (age / (s.seconds * 1000)) * plotWidth;
-      const y = midiY(displayMidi, height, bounds);
+      const y = pitchY(displayMidi, height, bounds);
       const radius = age < 130 ? 4.2 : 3.1;
       graphContext.globalAlpha = clamp(1 - age / (s.seconds * 1250), 0.25, 1);
       graphContext.fillStyle = octaveColor(note.octave);
@@ -233,6 +295,18 @@ export function PitchTrace({ main, onCleanup }) {
     canvas.width = Math.round(width * dpr);
     canvas.height = Math.round(height * dpr);
     graphContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawGraph();
+  }
+
+  function setView(view) {
+    s.view = view;
+    store.set('pitch-trace.view', s.view);
+    rangeButton.classList.toggle('is-on', view === 'range');
+    octaveButton.classList.toggle('is-on', view === 'octave');
+    rangeButton.setAttribute('aria-pressed', String(view === 'range'));
+    octaveButton.setAttribute('aria-pressed', String(view === 'octave'));
+    viewHint.hidden = view !== 'octave';
+    canvas.setAttribute('aria-label', graphAriaLabel());
     drawGraph();
   }
 
@@ -401,6 +475,8 @@ export function PitchTrace({ main, onCleanup }) {
     s.sensitivity = sliderToThreshold(Number(sensitivity.value));
     store.set('pitch-trace.sensitivity', s.sensitivity);
   });
+  rangeButton.addEventListener('click', () => setView('range'));
+  octaveButton.addEventListener('click', () => setView('octave'));
   startButton.addEventListener('click', () => running ? stop() : start());
   clearButton.addEventListener('click', () => {
     history.length = 0;
