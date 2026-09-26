@@ -3,15 +3,17 @@ import { icons } from './icons.js';
 import { artwork } from './artwork.js';
 import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
+import { PitchTrace } from './apps/pitch-trace.js';
 import { TimerApp } from './apps/timer.js';
 import { TapTempo } from './apps/tap-tempo.js';
 import { Hexic } from './apps/hexic.js?v=2.0.1';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '2.0.1';
+const APP_VERSION = '2.1.0';
 const APPS = [
   { id: 'metronome', name: 'Metronome', tagline: 'Make every beat count.', desc: 'A steady pulse for finding your rhythm. Set the pace, pick a sound, and settle into practice.', category: 'music', meta: '30–260 BPM', icon: icons.metro, render: Metronome },
   { id: 'tuner', name: 'Tuner', tagline: 'A little more in tune.', desc: 'Find the right note with a precise chromatic tuner.', category: 'music', meta: 'CHROMATIC · MIC INPUT', icon: icons.tuner, render: Tuner },
+  { id: 'pitch-trace', name: 'Pitch Trace', tagline: 'See where your voice goes.', desc: 'Watch sung notes travel through time, with octave colors and transposition.', category: 'music', meta: 'LIVE PITCH · MIC INPUT', icon: icons.pitchTrace, render: PitchTrace },
   { id: 'timer', name: 'Timer', tagline: 'Give your time a rhythm.', desc: 'Make room for focus, a workout, or a well-earned break.', category: 'focus', meta: 'COUNTDOWN + INTERVALS', icon: icons.timer, render: TimerApp },
   { id: 'tap-tempo', name: 'Tap Tempo', tagline: 'Feel it. Tap it. Find it.', desc: 'That beat in your head? Put a number to it.', category: 'music', meta: 'TAP TO FIND YOUR BPM', icon: icons.tap, render: TapTempo },
   { id: 'hexic', name: 'Hexic', tagline: 'A fresh angle on downtime.', desc: 'Rotate, connect, and get lost in a little color.', category: 'play', meta: 'A SMALL BRAIN BREAK', icon: icons.hex, render: Hexic },
@@ -108,7 +110,7 @@ function hub(main) {
     el('div', { className: 'hero-art', 'aria-hidden': 'true', innerHTML: artwork.hero }),
   ]);
   const grid = el('div', { className: 'apps' });
-  const count = el('span', { className: 'collection-count', role: 'status', 'aria-live': 'polite' }, '05 tools, countless possibilities');
+  const count = el('span', { className: 'collection-count', role: 'status', 'aria-live': 'polite' }, `${String(APPS.length).padStart(2, '0')} tools, countless possibilities`);
   const filters = el('div', { className: 'filters', role: 'group', 'aria-label': 'Filter tools' });
   let active = 'all';
   function showTools(category) {

@@ -13,6 +13,11 @@ hosted on GitHub Pages.
 - **Tuner** — Chromatic microphone tuner with cents, input level, and pitch
   history. A4 references: 432, 440, 442, and 444 Hz. Audio stays on the device;
   the microphone is released when stopped or when leaving the tool.
+- **Pitch Trace** — A live microphone pitch graph for singers and instruments.
+  Detected notes enter on the right and travel left across a 5–30 second time
+  window. Natural-note rows span C2–B6, octaves have distinct colors, and the
+  display can be transposed by ±12 semitones. A4 reference and sensitivity are
+  configurable; audio remains on the device.
 - **Timer** — Countdown and configurable work/rest intervals, including Tabata,
   HIIT, EMOM, and boxing presets. Pause/resume, audio alerts, and vibration where
   supported. Zero-second rest skips directly to the next round.
@@ -62,7 +67,8 @@ only; the deployed app has none.
 
 The checks cover category filters, installation help, tempo controls and voices,
 local persistence, timer modes and pause/resume, tap-to-metronome transfer,
-synthetic microphone pitch detection and cleanup, Hexic moves, every route at
+synthetic microphone pitch detection and cleanup, Pitch Trace transposition,
+Hexic moves, every route at
 320/390/768/1440 px, and a full offline reload. Synthetic audio verifies the
 pitch algorithm; a physical microphone and real-device installation still need
 manual checks on the target browser.
@@ -74,6 +80,7 @@ manual checks on the target browser.
 - `js/main.js` — App registry, hash router, collection filters, installation,
   offline status, and service-worker update handling.
 - `js/dom.js` — DOM helpers, local storage, toast, and audio utilities.
+- `js/pitch.js` — Shared autocorrelation and pitch-to-note helpers.
 - `js/icons.js` / `js/artwork.js` — Local SVG icons and instrument illustrations.
 - `js/apps/<id>.js` — Each tool exports a render function accepting
   `{ main, onCleanup }`; cleanup releases listeners, timers, and audio resources.

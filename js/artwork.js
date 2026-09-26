@@ -55,6 +55,25 @@ export const artwork = {
     <text x="180" y="145" text-anchor="middle" font-size="10" font-family="monospace" fill="#5b7b90" letter-spacing="2">440.00 Hz</text>
     <text x="66" y="112" font-size="17" fill="#5b7b90">♭</text><text x="284" y="112" font-size="17" fill="#5b7b90">♯</text>
   `),
+  'pitch-trace': svg(`
+    <path d="M38 34h286M38 58h286M38 82h286M38 106h286M38 130h286" stroke="#789186" stroke-width="1" opacity=".3"/>
+    <path d="M75 22v126M133 22v126M191 22v126M249 22v126M307 22v126" stroke="#789186" stroke-width="1" opacity=".16"/>
+    <text x="25" y="37" text-anchor="middle" font-size="10" font-family="monospace" fill="#668174">B</text>
+    <text x="25" y="61" text-anchor="middle" font-size="10" font-family="monospace" fill="#668174">G</text>
+    <text x="25" y="85" text-anchor="middle" font-size="10" font-family="monospace" fill="#668174">E</text>
+    <text x="25" y="109" text-anchor="middle" font-size="10" font-family="monospace" fill="#668174">C</text>
+    <text x="25" y="133" text-anchor="middle" font-size="10" font-family="monospace" fill="#668174">A</text>
+    <g stroke="#f7f7ef" stroke-width="2">
+      <circle cx="58" cy="119" r="5" fill="#c9674b"/><circle cx="76" cy="112" r="5" fill="#c9674b"/>
+      <circle cx="96" cy="99" r="5" fill="#bf8b2e"/><circle cx="116" cy="91" r="5" fill="#bf8b2e"/>
+      <circle cx="137" cy="83" r="5" fill="#4c8a67"/><circle cx="158" cy="86" r="5" fill="#4c8a67"/>
+      <circle cx="180" cy="70" r="5" fill="#397e9c"/><circle cx="202" cy="62" r="5" fill="#397e9c"/>
+      <circle cx="225" cy="67" r="5" fill="#397e9c"/><circle cx="249" cy="48" r="5" fill="#7b63a4"/>
+      <circle cx="274" cy="54" r="5" fill="#7b63a4"/><circle cx="302" cy="43" r="6" fill="#7b63a4"/>
+    </g>
+    <path d="M320 24v124" stroke="#52685e" stroke-width="2"/>
+    <text x="320" y="163" text-anchor="middle" font-size="8" font-family="monospace" fill="#668174" letter-spacing="1">NOW</text>
+  `),
   timer: svg(`
     <circle cx="180" cy="89" r="65" stroke="#dbc7b2" stroke-width="9"/>
     <circle cx="180" cy="89" r="65" stroke="#b8754d" stroke-width="9" stroke-dasharray="306 409" transform="rotate(-90 180 89)"/>

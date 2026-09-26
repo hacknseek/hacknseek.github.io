@@ -1,4 +1,5 @@
 import { el, store, clamp, viewHead } from '../dom.js';
+import { autoCorrelate } from '../pitch.js';
 
 const NOTE_NAMES = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'];
 const A4_OPTIONS = [432, 440, 442, 444];
@@ -288,75 +289,6 @@ export function Tuner({ main, onCleanup }) {
     centsEl.className = 'cents ' + (Math.abs(cents) <= 5 ? 'in-tune' : cents > 0 ? 'sharp' : 'flat');
     needle.style.left = 50 + clamp(cents, -50, 50) + '%';
     drawGraph();
-  }
-
-  function autoCorrelate(buffer, sampleRate) {
-    const size = buffer.length;
-    let mean = 0;
-    for (let i = 0; i < size; i++) mean += buffer[i];
-    mean /= size;
-
-    const sig = new Float32Array(size);
-    let rms = 0;
-    for (let i = 0; i < size; i++) {
-      const v = buffer[i] - mean;
-      sig[i] = v;
-      rms += v * v;
-    }
-    rms = Math.sqrt(rms / size);
-    const energy = rms * rms;
-    if (energy < 1e-9) return -1;
-
-    const minLag = Math.floor(sampleRate / 1200);
-    const maxLag = Math.floor(sampleRate / 50);
-    const corr = new Float32Array(maxLag + 1);
-    let bestLag = -1;
-    let bestCorr = 0;
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      let c = 0;
-      for (let i = 0; i < size - lag; i++) c += sig[i] * sig[i + lag];
-      corr[lag] = c / (size - lag);
-      if (corr[lag] > bestCorr) {
-        bestCorr = corr[lag];
-        bestLag = lag;
-      }
-    }
-    if (bestLag <= 0 || bestCorr / energy < 0.5) return -1;
-
-    const cutoff = bestCorr * 0.9;
-    let state = 0;
-    let peak = -1;
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      if (state === 0) {
-        if (corr[lag] < cutoff) state = 1;
-      } else if (corr[lag] >= cutoff) {
-        peak = lag;
-        break;
-      }
-    }
-    if (peak === -1 || corr[peak] / energy < 0.35) return -1;
-    while (peak + 1 <= maxLag && corr[peak + 1] > corr[peak]) peak++;
-    bestLag = peak;
-
-    // Normalize the three samples around the peak before interpolation.
-    // This avoids phase-dependent pitch drift from the finite sample window.
-    function normalizedCorrelation(lag) {
-      let product = 0;
-      let leftEnergy = 0;
-      let rightEnergy = 0;
-      for (let i = 0; i < size - lag; i++) {
-        product += sig[i] * sig[i + lag];
-        leftEnergy += sig[i] * sig[i];
-        rightEnergy += sig[i + lag] * sig[i + lag];
-      }
-      return product / Math.sqrt(leftEnergy * rightEnergy || 1);
-    }
-    const a = normalizedCorrelation(bestLag - 1);
-    const b = normalizedCorrelation(bestLag);
-    const c = normalizedCorrelation(bestLag + 1);
-    const denom = a - 2 * b + c;
-    const shift = denom ? clamp(0.5 * (a - c) / denom, -1, 1) : 0;
-    return sampleRate / (bestLag + shift);
   }
 
   a4Select.addEventListener('change', (e) => {

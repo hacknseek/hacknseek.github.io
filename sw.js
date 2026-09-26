@@ -1,15 +1,17 @@
-const VERSION = 'hns-v29';
+const VERSION = 'hns-v30';
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
   './css/styles.css',
-  './js/main.js?v=2.0.1',
+  './js/main.js?v=2.1.0',
   './js/dom.js',
+  './js/pitch.js',
   './js/icons.js',
   './js/artwork.js',
   './js/apps/metronome.js',
   './js/apps/tuner.js',
+  './js/apps/pitch-trace.js',
   './js/apps/timer.js',
   './js/apps/tap-tempo.js',
   './js/apps/hexic.js?v=2.0.1',

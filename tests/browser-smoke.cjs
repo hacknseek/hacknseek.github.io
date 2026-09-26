@@ -52,9 +52,9 @@ const fs = require('node:fs');
       calls: ['resume-interrupted', 'suspend-running', 'resume-running', 'suspend-running'],
     });
     console.log('PASS interrupted Web Audio recovery, restart, suspend, and timeout handling');
-    assert.equal(await page.locator('.tool-card').count(),5);
+    assert.equal(await page.locator('.tool-card').count(),6);
     await page.getByRole('button',{name:'Music',exact:true}).click();
-    assert.equal(await page.locator('.tool-card').count(),3);
+    assert.equal(await page.locator('.tool-card').count(),4);
     await page.getByRole('button',{name:'Focus',exact:true}).click();
     assert.equal(await page.locator('.tool-card').count(),1);
     assert.equal(await page.locator('.tool-card h3').textContent(),'Timer');
@@ -150,6 +150,7 @@ const fs = require('node:fs');
     });
     await page.getByRole('button',{name:'Start tuner',exact:true}).click();
     await page.waitForFunction(() => document.querySelector('.note').textContent === 'A4');
+    await page.waitForTimeout(150);
     const hz = parseFloat(await page.locator('.hz').textContent());
     assert.ok(Math.abs(hz-440)<1,`440 Hz detected as ${hz}`);
     for (const frequency of [110, 220, 440, 880]) {
@@ -187,6 +188,33 @@ const fs = require('node:fs');
     await page.waitForFunction(() => lateStream.getTracks().every(track => track.readyState === 'ended'));
     console.log('PASS navigation during pending microphone permission');
 
+    await navigate('pitch-trace');
+    await page.getByRole('combobox',{name:'Transpose detected notes'}).selectOption('2');
+    await page.evaluate(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        window.traceAudio = new AudioContext();
+        const oscillator = traceAudio.createOscillator();
+        oscillator.frequency.value = 440;
+        window.traceOscillator = oscillator;
+        const destination = traceAudio.createMediaStreamDestination();
+        oscillator.connect(destination);
+        oscillator.start();
+        await traceAudio.resume();
+        window.traceStream = destination.stream;
+        return destination.stream;
+      };
+    });
+    await page.getByRole('button',{name:'Start listening',exact:true}).click();
+    await page.waitForFunction(() => document.querySelector('.trace-current-note').textContent === 'B4');
+    assert.match(await page.locator('.trace-current-detail').textContent(),/concert A4/);
+    await page.waitForTimeout(250);
+    await snap('pitch-trace-desktop');
+    await page.getByRole('button',{name:'Clear trace',exact:true}).click();
+    await page.getByRole('link',{name:'Timer',exact:true}).click();
+    assert.ok(await page.evaluate(() => traceStream.getTracks().every(track => track.readyState === 'ended')));
+    await page.evaluate(() => traceAudio.close());
+    console.log('PASS Pitch Trace detection, transposition, clearing, and microphone release');
+
     await navigate('hexic');
     await page.getByRole('button',{name:'Hint',exact:true}).click();
     await page.getByRole('button',{name:'Rotate ↻',exact:true}).waitFor({state:'visible'});
@@ -198,7 +226,7 @@ const fs = require('node:fs');
 
     for(const width of [320,390,768,1440]) {
       await page.setViewportSize({width,height:900});
-      for(const route of ['', 'metronome','tuner','timer','tap-tempo','hexic']) {
+      for(const route of ['', 'metronome','tuner','pitch-trace','timer','tap-tempo','hexic']) {
         await navigate(route);
         const dims = await page.evaluate(() => ({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
         assert.ok(dims.scroll <= dims.viewport,`${route||'home'} overflows at ${width}: ${JSON.stringify(dims)}`);
@@ -218,12 +246,12 @@ const fs = require('node:fs');
     await context.setOffline(true);
     await page.goto(base,{waitUntil:'load'});
     await page.getByRole('link',{name:'Open Metronome',exact:true}).waitFor();
-    for(const route of ['metronome','tuner','timer','tap-tempo','hexic']) {
+    for(const route of ['metronome','tuner','pitch-trace','timer','tap-tempo','hexic']) {
       await page.goto(`${base}/#${route}`,{waitUntil:'load'});
       await page.locator('.view-head h2').waitFor();
     }
     assert.equal(await page.evaluate(async () => (await caches.keys()).filter(key => key.startsWith('hns-')).length),1);
-    console.log('PASS full offline reload and all five tools');
+    console.log('PASS full offline reload and all six tools');
     assert.deepEqual(errors,[]);
     console.log('PASS no uncaught browser errors');
   } finally { await browser.close(); }

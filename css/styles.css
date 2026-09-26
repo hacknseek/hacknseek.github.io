@@ -381,6 +381,12 @@ h2 {
   --card-ink: #53778a;
 }
 
+.tool-pitch-trace {
+  --card-bg: #edf3ee;
+  --card-border: #d8e5db;
+  --card-ink: #527363;
+}
+
 .tool-timer {
   --card-bg: #f5eee5;
   --card-border: #e9dfd2;
@@ -1113,6 +1119,133 @@ canvas.graph {
   gap: 19px;
 }
 
+.pitch-stage {
+  padding: 20px;
+  gap: 16px;
+  background: #f1f5f1;
+}
+
+.trace-error {
+  border-color: rgba(248,113,113,.4);
+  background: rgba(248,113,113,.08);
+}
+
+.trace-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 4px;
+}
+
+.trace-current {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 13px;
+  min-width: 225px;
+}
+
+.trace-current .eyebrow {
+  grid-column: 1 / -1;
+  color: #617369;
+}
+
+.trace-current-note {
+  font: 600 47px/1 var(--mono);
+  letter-spacing: -3px;
+  color: #527363;
+  font-variant-numeric: tabular-nums;
+}
+
+.trace-current-detail {
+  font: 10px/1.6 var(--mono);
+  color: var(--text-dim);
+}
+
+.octave-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px 13px;
+  max-width: 380px;
+  font: 8px var(--mono);
+  color: var(--text-dim);
+}
+
+.octave-legend span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.octave-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-color);
+}
+
+.pitch-canvas {
+  display: block;
+  width: 100%;
+  height: 440px;
+  border: 1px solid #d7dfd7;
+  border-radius: 9px;
+  background: #f7f8f4;
+}
+
+.trace-input-row {
+  padding: 0 4px;
+}
+
+.trace-input-row label {
+  min-width: 78px;
+}
+
+.trace-level {
+  background: #dfe7e0;
+}
+
+.trace-level>span {
+  background: #527e68;
+}
+
+.trace-controls {
+  gap: 20px;
+}
+
+.trace-settings {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px;
+}
+
+.trace-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.trace-settings select {
+  width: 100%;
+}
+
+.trace-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.trace-actions .primary {
+  min-width: 145px;
+}
+
+.trace-privacy {
+  font-size: .85rem;
+}
+
 .view-timer .big-number {
   color: #986341;
   margin-top: 10px;
@@ -1555,6 +1688,26 @@ canvas.hexic-board {
   }
   .view-timer .panel .panel {
     padding: 16px;
+  }
+  .pitch-stage {
+    padding: 12px;
+  }
+  .trace-topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .trace-current-note {
+    font-size: 40px;
+  }
+  .octave-legend {
+    justify-content: flex-start;
+  }
+  .pitch-canvas {
+    height: 420px;
+  }
+  .trace-settings {
+    grid-template-columns: 1fr;
   }
   .view-timer .panel-row {
     gap: 12px;
