@@ -5,10 +5,10 @@ import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
 import { TimerApp } from './apps/timer.js';
 import { TapTempo } from './apps/tap-tempo.js';
-import { Hexic } from './apps/hexic.js?v=2.0.0';
+import { Hexic } from './apps/hexic.js?v=2.0.1';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.1';
 const APPS = [
   { id: 'metronome', name: 'Metronome', tagline: 'Make every beat count.', desc: 'A steady pulse for finding your rhythm. Set the pace, pick a sound, and settle into practice.', category: 'music', meta: '30–260 BPM', icon: icons.metro, render: Metronome },
   { id: 'tuner', name: 'Tuner', tagline: 'A little more in tune.', desc: 'Find the right note with a precise chromatic tuner.', category: 'music', meta: 'CHROMATIC · MIC INPUT', icon: icons.tuner, render: Tuner },

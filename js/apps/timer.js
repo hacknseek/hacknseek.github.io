@@ -1,4 +1,6 @@
-import { el, store, clamp, fmtTime, viewHead } from '../dom.js';
+import {
+  el, store, clamp, fmtTime, viewHead, audioContext, resumeAudioContext, suspendAudioContext, toast,
+} from '../dom.js';
 import { icons } from '../icons.js';
 
 const QUICK_PRESETS = [30, 60, 90, 120, 180, 300, 600, 900];
@@ -26,6 +28,11 @@ export function TimerApp({ main, onCleanup }) {
   let phase = 'work';
   let round = 0;
   let audio = null;
+  let audioNeedsReset = false;
+  let recovering = false;
+  let disposed = false;
+  let needsForegroundRecovery = false;
+  let backgroundSuspend = Promise.resolve(true);
   const alarmTimeouts = new Set();
 
   main.append(viewHead('Timer', 'Countdown and interval timer'));
@@ -105,17 +112,30 @@ export function TimerApp({ main, onCleanup }) {
 
   function ensureAudio() {
     if (!audio) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      audio = new AC();
-    }
-    if (audio.state === 'suspended') {
-      try { audio.resume(); } catch {}
+      audio = audioContext();
     }
     return audio;
   }
 
-  function beep(freq, dur) {
-    const ctx = ensureAudio();
+  function resetAudio() {
+    if (audio) {
+      try { audio.close().catch(() => {}); } catch {}
+    }
+    audio = null;
+    audioNeedsReset = false;
+  }
+
+  async function prepareAudio({ restart = false, allowReset = false } = {}) {
+    if (allowReset && (audioNeedsReset || audio?.state === 'closed' || audio?.state === 'interrupted')) resetAudio();
+    const candidate = ensureAudio();
+    const ready = await resumeAudioContext(candidate, { restart });
+    if (!ready) audioNeedsReset = true;
+    return ready && !disposed && candidate === audio ? candidate : null;
+  }
+
+  async function beep(freq, dur) {
+    const ctx = await prepareAudio({ allowReset: true });
+    if (!ctx) return;
     const t = ctx.currentTime;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
@@ -128,10 +148,11 @@ export function TimerApp({ main, onCleanup }) {
     o.stop(t + dur + 0.05);
   }
 
-  function alarm() {
-    beep(660, 0.15);
+  async function alarm() {
+    await beep(660, 0.15);
+    if (disposed) return;
     for (const [frequency, duration, delay] of [[880, 0.15, 200], [1100, 0.3, 400]]) {
-      const id = setTimeout(() => { alarmTimeouts.delete(id); beep(frequency, duration); }, delay);
+      const id = setTimeout(() => { alarmTimeouts.delete(id); void beep(frequency, duration); }, delay);
       alarmTimeouts.add(id);
     }
     try { navigator.vibrate && navigator.vibrate([120, 80, 120, 80, 300]); } catch {}
@@ -173,7 +194,7 @@ export function TimerApp({ main, onCleanup }) {
 
   function start() {
     if (running) return;
-    ensureAudio();
+    void prepareAudio({ allowReset: true });
     if (!sessionActive) beginSession();
     running = true;
     endAt = performance.now() + remaining * 1000;
@@ -196,7 +217,7 @@ export function TimerApp({ main, onCleanup }) {
     pause();
     sessionActive = false;
     setStatus('Done!');
-    alarm();
+    void alarm();
   }
 
   function advance() {
@@ -204,7 +225,7 @@ export function TimerApp({ main, onCleanup }) {
       finish();
       return;
     }
-    beep(880, 0.18);
+    void beep(880, 0.18);
     if (phase === 'work' && s.rest > 0) {
       phase = 'rest';
       setStatus(`Round ${round + 1}/${s.rounds} \u00b7 Rest`);
@@ -286,14 +307,46 @@ export function TimerApp({ main, onCleanup }) {
   bindField(restIn, 'rest', 0, 0, 3600);
   bindField(roundsIn, 'rounds', 8, 1, 99);
 
+  async function recoverAudio() {
+    if (recovering || !needsForegroundRecovery || disposed || document.visibilityState !== 'visible' || (!running && !sessionActive)) return;
+    recovering = true;
+    needsForegroundRecovery = false;
+    await backgroundSuspend;
+    const ready = await prepareAudio({ restart: true });
+    recovering = false;
+    if (disposed) return;
+    if (!ready) toast('iOS paused the alert sound. Pause and Start to restore it.', 4500);
+    if (running) {
+      cancelAnimationFrame(rafId);
+      tick();
+    }
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      needsForegroundRecovery = true;
+      backgroundSuspend = suspendAudioContext(audio);
+    } else {
+      recoverAudio();
+    }
+  }
+
+  function onPageShow() {
+    if (document.visibilityState === 'visible') recoverAudio();
+  }
+
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pageshow', onPageShow);
+
   switchMode('once');
 
   onCleanup(() => {
+    disposed = true;
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pageshow', onPageShow);
     pause();
     for (const id of alarmTimeouts) clearTimeout(id);
     alarmTimeouts.clear();
-    if (audio) {
-      try { audio.close(); } catch {}
-    }
+    resetAudio();
   });
 }

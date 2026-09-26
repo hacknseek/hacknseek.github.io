@@ -61,3 +61,32 @@ export function audioContext() {
   if (!AC) throw new Error('Web Audio is not supported in this browser.');
   return new AC();
 }
+
+function waitForAudioAction(action, timeout) {
+  let timer = 0;
+  return Promise.race([
+    Promise.resolve(action),
+    new Promise((resolve) => { timer = setTimeout(resolve, timeout); }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+// iOS can leave Web Audio suspended or in its non-standard "interrupted"
+// state after the screen locks or the PWA moves to the background. Never wait
+// forever for resume(): some WebKit versions leave its promise pending.
+export async function resumeAudioContext(ctx, { restart = false, timeout = 1000 } = {}) {
+  if (!ctx || ctx.state === 'closed') return false;
+  try {
+    if (restart && ctx.state === 'running') {
+      await waitForAudioAction(ctx.suspend(), timeout);
+      if (ctx.state === 'running') return false;
+    }
+    if (ctx.state !== 'running') await waitForAudioAction(ctx.resume(), timeout);
+  } catch {}
+  return ctx.state === 'running';
+}
+
+export async function suspendAudioContext(ctx, timeout = 1000) {
+  if (!ctx || ctx.state === 'closed' || ctx.state === 'suspended') return true;
+  try { await waitForAudioAction(ctx.suspend(), timeout); } catch {}
+  return ctx.state === 'suspended' || ctx.state === 'interrupted';
+}

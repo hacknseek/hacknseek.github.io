@@ -1,4 +1,6 @@
-import { el, $$, store, clamp, viewHead, audioContext } from '../dom.js';
+import {
+  el, $$, store, clamp, viewHead, audioContext, resumeAudioContext, suspendAudioContext, toast,
+} from '../dom.js';
 import { icons } from '../icons.js';
 
 const SIGNATURES = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8'];
@@ -97,6 +99,10 @@ export function Metronome({ main, onCleanup }) {
   let nextTime = 0;
   let loopId = 0;
   let gen = 0;
+  let audioNeedsReset = false;
+  let recovering = false;
+  let needsForegroundRecovery = false;
+  let backgroundSuspend = Promise.resolve(true);
   const taps = [];
 
   main.append(viewHead('Metronome', 'BPM, time signature, sound'));
@@ -184,6 +190,16 @@ export function Metronome({ main, onCleanup }) {
     return ctx;
   }
 
+  function resetAudio() {
+    if (ctx) {
+      try { ctx.close().catch(() => {}); } catch {}
+    }
+    ctx = null;
+    master = null;
+    voices = null;
+    audioNeedsReset = false;
+  }
+
   function applyVolume() {
     if (master) master.gain.setTargetAtTime(s.volume, ctx.currentTime, 0.01);
   }
@@ -209,12 +225,17 @@ export function Metronome({ main, onCleanup }) {
   async function start() {
     if (running || starting || disposed) return;
     starting = true;
+    if (audioNeedsReset || ctx?.state === 'closed' || ctx?.state === 'interrupted') resetAudio();
     ensureAudio();
-    if (ctx.state === 'suspended') {
-      try { await ctx.resume(); } catch {}
-    }
+    const ready = await resumeAudioContext(ctx);
     starting = false;
-    if (disposed || ctx.state !== 'running' || running) return;
+    if (disposed || !ready || running) {
+      if (!disposed && !ready) {
+        audioNeedsReset = true;
+        toast('Audio was interrupted. Tap Play to try again.', 3500);
+      }
+      return;
+    }
     running = true;
     gen++;
     beat = 0;
@@ -234,6 +255,43 @@ export function Metronome({ main, onCleanup }) {
     playBtn.setAttribute('aria-label', 'Play');
     playBtn.innerHTML = icons.play;
     $$('.dot', dotsRow).forEach((d) => d.classList.remove('is-on'));
+  }
+
+  async function recoverPlayback() {
+    if (!running || recovering || !needsForegroundRecovery || disposed || document.visibilityState !== 'visible') return;
+    recovering = true;
+    needsForegroundRecovery = false;
+    await backgroundSuspend;
+    const ready = await resumeAudioContext(ctx, { restart: true });
+    recovering = false;
+    if (!running || disposed) return;
+    if (!ready) {
+      audioNeedsReset = true;
+      stop();
+      toast('iOS paused the audio. Tap Play to restore it.', 4000);
+      return;
+    }
+    gen++;
+    clearTimeout(loopId);
+    nextTime = ctx.currentTime + 0.06;
+    loop();
+  }
+
+  function onVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      needsForegroundRecovery = true;
+      if (running) {
+        gen++;
+        clearTimeout(loopId);
+      }
+      backgroundSuspend = suspendAudioContext(ctx);
+    } else {
+      recoverPlayback();
+    }
+  }
+
+  function onPageShow() {
+    if (document.visibilityState === 'visible') recoverPlayback();
   }
 
   function reset() {
@@ -297,17 +355,19 @@ export function Metronome({ main, onCleanup }) {
     }
   }
   document.addEventListener('keydown', onKey);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pageshow', onPageShow);
 
   buildDots();
 
   onCleanup(() => {
     disposed = true;
     document.removeEventListener('keydown', onKey);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('pageshow', onPageShow);
     gen++;
     running = false;
     clearTimeout(loopId);
-    if (ctx) {
-      try { ctx.close(); } catch {}
-    }
+    resetAudio();
   });
 }

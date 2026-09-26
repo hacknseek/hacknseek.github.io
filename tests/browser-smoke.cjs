@@ -23,6 +23,35 @@ const fs = require('node:fs');
   };
   try {
     await navigate();
+    const audioRecovery = await page.evaluate(async () => {
+      const { resumeAudioContext, suspendAudioContext } = await import('./js/dom.js');
+      const calls = [];
+      const interrupted = {
+        state: 'interrupted',
+        resume() { calls.push('resume-interrupted'); this.state = 'running'; return Promise.resolve(); },
+      };
+      const running = {
+        state: 'running',
+        suspend() { calls.push('suspend-running'); this.state = 'suspended'; return Promise.resolve(); },
+        resume() { calls.push('resume-running'); this.state = 'running'; return Promise.resolve(); },
+      };
+      const hanging = { state: 'interrupted', resume() { return new Promise(() => {}); } };
+      return {
+        interrupted: await resumeAudioContext(interrupted),
+        restarted: await resumeAudioContext(running, { restart: true }),
+        suspended: await suspendAudioContext(running),
+        timedOut: await resumeAudioContext(hanging, { timeout: 5 }),
+        calls,
+      };
+    });
+    assert.deepEqual(audioRecovery, {
+      interrupted: true,
+      restarted: true,
+      suspended: true,
+      timedOut: false,
+      calls: ['resume-interrupted', 'suspend-running', 'resume-running', 'suspend-running'],
+    });
+    console.log('PASS interrupted Web Audio recovery, restart, suspend, and timeout handling');
     assert.equal(await page.locator('.tool-card').count(),5);
     await page.getByRole('button',{name:'Music',exact:true}).click();
     assert.equal(await page.locator('.tool-card').count(),3);
