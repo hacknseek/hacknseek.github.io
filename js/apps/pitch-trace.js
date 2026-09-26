@@ -211,13 +211,13 @@ export function PitchTrace({ main, onCleanup }) {
 
   function graphAriaLabel() {
     return s.view === 'octave'
-      ? `Live pitch graph in one-octave detail view for ${selectedKey().label} major. Time moves from right to left; all octaves are folded onto C through B, gold rows mark scale notes, and green bands show plus or minus 5 cents.`
+      ? `Live pitch graph in one-octave detail view for ${selectedKey().label} major. Time moves from right to left; ${selectedKey().label} tonic is at the bottom, notes rise chromatically for one octave, gold rows mark scale notes, and green bands show plus or minus 5 cents.`
       : `Live pitch graph in full-range view for ${selectedKey().label} major. Time moves from right to left; marked rows show the selected scale from C2 to B6.`;
   }
 
   function graphValue(midi) {
     if (s.view === 'range') return midi;
-    return (((midi + 0.5) % 12) + 12) % 12 - 0.5;
+    return (((midi - selectedKey().root + 0.5) % 12) + 12) % 12 - 0.5;
   }
 
   function pitchY(midi, height, bounds) {

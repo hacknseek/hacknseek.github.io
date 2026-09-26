@@ -214,6 +214,7 @@ const fs = require('node:fs');
     await page.getByRole('button',{name:'One octave',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:'One octave',exact:true}).getAttribute('aria-pressed'),'true');
     assert.match(await page.locator('.pitch-canvas').getAttribute('aria-label'),/one-octave detail view/);
+    assert.match(await page.locator('.pitch-canvas').getAttribute('aria-label'),/G tonic is at the bottom/);
     assert.equal(await page.getByText('Green bands = ±5 cents',{exact:true}).isVisible(),true);
     await page.waitForTimeout(250);
     await snap('pitch-trace-desktop');
