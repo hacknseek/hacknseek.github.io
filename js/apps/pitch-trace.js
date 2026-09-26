@@ -8,6 +8,21 @@ const MAX_MIDI = 95; // B6
 const SAMPLE_INTERVAL = 45;
 const SENS_T_LOUD = 0.06;
 const SENS_T_QUIET = 0.0005;
+const MAJOR_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+const MAJOR_KEYS = [
+  { value: 'C', label: 'C', root: 0, notes: ['C', 'D', 'E', 'F', 'G', 'A', 'B'] },
+  { value: 'Db', label: 'D♭', root: 1, notes: ['D♭', 'E♭', 'F', 'G♭', 'A♭', 'B♭', 'C'] },
+  { value: 'D', label: 'D', root: 2, notes: ['D', 'E', 'F♯', 'G', 'A', 'B', 'C♯'] },
+  { value: 'Eb', label: 'E♭', root: 3, notes: ['E♭', 'F', 'G', 'A♭', 'B♭', 'C', 'D'] },
+  { value: 'E', label: 'E', root: 4, notes: ['E', 'F♯', 'G♯', 'A', 'B', 'C♯', 'D♯'] },
+  { value: 'F', label: 'F', root: 5, notes: ['F', 'G', 'A', 'B♭', 'C', 'D', 'E'] },
+  { value: 'Fs', label: 'F♯', root: 6, notes: ['F♯', 'G♯', 'A♯', 'B', 'C♯', 'D♯', 'E♯'] },
+  { value: 'G', label: 'G', root: 7, notes: ['G', 'A', 'B', 'C', 'D', 'E', 'F♯'] },
+  { value: 'Ab', label: 'A♭', root: 8, notes: ['A♭', 'B♭', 'C', 'D♭', 'E♭', 'F', 'G'] },
+  { value: 'A', label: 'A', root: 9, notes: ['A', 'B', 'C♯', 'D', 'E', 'F♯', 'G♯'] },
+  { value: 'Bb', label: 'B♭', root: 10, notes: ['B♭', 'C', 'D', 'E♭', 'F', 'G', 'A'] },
+  { value: 'B', label: 'B', root: 11, notes: ['B', 'C♯', 'D♯', 'E', 'F♯', 'G♯', 'A♯'] },
+];
 const OCTAVE_COLORS = {
   2: '#c9674b',
   3: '#bf8b2e',
@@ -46,8 +61,10 @@ export function PitchTrace({ main, onCleanup }) {
     transpose: store.get('pitch-trace.transpose', 0),
     seconds: store.get('pitch-trace.seconds', 10),
     view: store.get('pitch-trace.view', 'range'),
+    key: store.get('pitch-trace.key', 'C'),
   };
   if (!['range', 'octave'].includes(s.view)) s.view = 'range';
+  if (!MAJOR_KEYS.some((key) => key.value === s.key)) s.key = 'C';
 
   let ctx = null;
   let analyser = null;
@@ -87,6 +104,7 @@ export function PitchTrace({ main, onCleanup }) {
     octaveButton,
   ]);
   const viewHint = el('span', { className: 'trace-view-hint', hidden: s.view !== 'octave' }, 'Green bands = ±5 cents');
+  const scaleSummary = el('div', { className: 'trace-scale-summary', role: 'status' });
   const canvas = el('canvas', {
     className: 'pitch-canvas',
     role: 'img',
@@ -107,7 +125,7 @@ export function PitchTrace({ main, onCleanup }) {
     el('section', { className: 'panel pitch-stage' }, [
       el('div', { className: 'trace-topline' }, [
         current,
-        el('div', { className: 'trace-display-options' }, [viewToggle, viewHint, legend]),
+        el('div', { className: 'trace-display-options' }, [viewToggle, viewHint, scaleSummary, legend]),
       ]),
       canvas,
       el('div', { className: 'panel-row trace-input-row' }, [
@@ -122,6 +140,13 @@ export function PitchTrace({ main, onCleanup }) {
     const option = el('option', { value }, transposeLabel(value));
     if (value === s.transpose) option.selected = true;
     transposeSelect.append(option);
+  }
+
+  const keySelect = el('select', { 'aria-label': 'Major key' });
+  for (const key of MAJOR_KEYS) {
+    const option = el('option', { value: key.value }, `${key.label} major`);
+    if (key.value === s.key) option.selected = true;
+    keySelect.append(option);
   }
 
   const a4Select = el('select', { 'aria-label': 'A4 reference frequency' });
@@ -151,6 +176,7 @@ export function PitchTrace({ main, onCleanup }) {
 
   main.append(el('section', { className: 'panel trace-controls' }, [
     el('div', { className: 'trace-settings' }, [
+      el('label', {}, ['Major key', keySelect]),
       el('label', {}, ['Transpose', transposeSelect]),
       el('label', {}, ['Reference', a4Select]),
       el('label', {}, ['Time window', windowSelect]),
@@ -162,13 +188,31 @@ export function PitchTrace({ main, onCleanup }) {
   ]));
 
   function plotBounds(width, height) {
-    return { left: width < 480 ? 42 : 52, right: 12, top: 12, bottom: 27 };
+    return { left: s.view === 'octave' ? (width < 480 ? 55 : 64) : (width < 480 ? 46 : 58), right: 12, top: 12, bottom: 27 };
+  }
+
+  function selectedKey() {
+    return MAJOR_KEYS.find((key) => key.value === s.key) || MAJOR_KEYS[0];
+  }
+
+  function scaleDegree(pitchClass) {
+    const interval = (pitchClass - selectedKey().root + 12) % 12;
+    const index = MAJOR_INTERVALS.indexOf(interval);
+    return index === -1 ? 0 : index + 1;
+  }
+
+  function updateScaleSummary() {
+    const key = selectedKey();
+    scaleSummary.replaceChildren(
+      el('strong', {}, `Gold rows · ${key.label} major`),
+      el('span', {}, key.notes.map((note, index) => `${index + 1} ${note}`).join(' · ')),
+    );
   }
 
   function graphAriaLabel() {
     return s.view === 'octave'
-      ? 'Live pitch graph in one-octave detail view. Time moves from right to left; all octaves are folded onto C through B, with in-tune bands at plus or minus 5 cents.'
-      : 'Live pitch graph in full-range view. Time moves from right to left; vertical position shows pitch from C2 to B6.';
+      ? `Live pitch graph in one-octave detail view for ${selectedKey().label} major. Time moves from right to left; all octaves are folded onto C through B, gold rows mark scale notes, and green bands show plus or minus 5 cents.`
+      : `Live pitch graph in full-range view for ${selectedKey().label} major. Time moves from right to left; marked rows show the selected scale from C2 to B6.`;
   }
 
   function graphValue(midi) {
@@ -198,6 +242,13 @@ export function PitchTrace({ main, onCleanup }) {
 
     if (s.view === 'octave') {
       for (let pitchClass = 0; pitchClass < 12; pitchClass++) {
+        const degree = scaleDegree(pitchClass);
+        if (degree) {
+          const scaleTop = pitchY(pitchClass + 0.46, height, bounds);
+          const scaleBottom = pitchY(pitchClass - 0.46, height, bounds);
+          graphContext.fillStyle = degree === 1 ? 'rgba(191,139,46,.14)' : 'rgba(191,139,46,.065)';
+          graphContext.fillRect(bounds.left, scaleTop, plotWidth, scaleBottom - scaleTop);
+        }
         const bandTop = pitchY(pitchClass + 0.05, height, bounds);
         const bandBottom = pitchY(pitchClass - 0.05, height, bounds);
         graphContext.fillStyle = 'rgba(66,119,91,.11)';
@@ -216,29 +267,35 @@ export function PitchTrace({ main, onCleanup }) {
 
         const y = pitchY(pitchClass, height, bounds);
         const natural = NATURAL_NOTES.has(pitchClass);
-        graphContext.strokeStyle = natural ? 'rgba(71,82,70,.29)' : 'rgba(71,82,70,.16)';
-        graphContext.lineWidth = natural ? 1.2 : 1;
+        graphContext.strokeStyle = degree === 1 ? 'rgba(151,107,30,.62)' : degree ? 'rgba(119,96,47,.34)' : natural ? 'rgba(71,82,70,.22)' : 'rgba(71,82,70,.13)';
+        graphContext.lineWidth = degree === 1 ? 1.8 : natural || degree ? 1.2 : 1;
         graphContext.beginPath();
         graphContext.moveTo(bounds.left, y);
         graphContext.lineTo(width - bounds.right, y);
         graphContext.stroke();
-        graphContext.fillStyle = natural ? '#3f4e42' : '#92998f';
-        graphContext.fillText(NOTE_NAMES[pitchClass].replace('#', '♯'), bounds.left - 7, y);
+        graphContext.fillStyle = degree === 1 ? '#8a651e' : degree ? '#4f5d53' : natural ? '#737d74' : '#9ca29b';
+        const label = degree ? `${degree} ${selectedKey().notes[degree - 1]}` : NOTE_NAMES[pitchClass].replace('#', '♯');
+        graphContext.fillText(label, bounds.left - 7, y);
       }
     } else {
       for (let midi = MIN_MIDI; midi <= MAX_MIDI; midi++) {
         const pitchClass = ((midi % 12) + 12) % 12;
-        if (!NATURAL_NOTES.has(pitchClass)) continue;
+        const degree = scaleDegree(pitchClass);
+        if (!degree) continue;
         const y = pitchY(midi, height, bounds);
         const octave = Math.floor(midi / 12) - 1;
-        graphContext.strokeStyle = pitchClass === 0 ? 'rgba(71,82,70,.24)' : 'rgba(71,82,70,.11)';
-        graphContext.lineWidth = pitchClass === 0 ? 1.2 : 1;
+        const bandTop = pitchY(midi + 0.18, height, bounds);
+        const bandBottom = pitchY(midi - 0.18, height, bounds);
+        graphContext.fillStyle = degree === 1 ? 'rgba(191,139,46,.12)' : 'rgba(191,139,46,.045)';
+        graphContext.fillRect(bounds.left, bandTop, plotWidth, bandBottom - bandTop);
+        graphContext.strokeStyle = degree === 1 ? 'rgba(151,107,30,.5)' : 'rgba(71,82,70,.13)';
+        graphContext.lineWidth = degree === 1 ? 1.4 : 1;
         graphContext.beginPath();
         graphContext.moveTo(bounds.left, y);
         graphContext.lineTo(width - bounds.right, y);
         graphContext.stroke();
-        graphContext.fillStyle = pitchClass === 0 ? '#3f4e42' : '#7b8379';
-        graphContext.fillText(`${NOTE_NAMES[pitchClass]}${octave}`, bounds.left - 7, y);
+        graphContext.fillStyle = degree === 1 ? '#8a651e' : '#667269';
+        graphContext.fillText(`${degree} ${selectedKey().notes[degree - 1]}${octave}`, bounds.left - 7, y);
       }
     }
 
@@ -324,12 +381,15 @@ export function PitchTrace({ main, onCleanup }) {
     const concertMidi = frequencyToMidi(frequency, s.a4);
     const display = midiNote(concertMidi + s.transpose);
     const concert = midiNote(concertMidi);
-    currentNote.textContent = `${display.name}${display.octave}`;
+    const degree = scaleDegree(((display.midi % 12) + 12) % 12);
+    const displayName = degree ? selectedKey().notes[degree - 1] : display.name.replace('#', '♯');
+    currentNote.textContent = `${displayName}${display.octave}`;
     currentNote.style.color = octaveColor(display.octave);
     const cents = Math.round(display.cents);
     const tuning = `${cents > 0 ? '+' : ''}${cents} cents`;
     const concertLabel = s.transpose ? ` · concert ${concert.name}${concert.octave}` : '';
-    currentDetail.textContent = `${frequency.toFixed(1)} Hz · ${tuning}${concertLabel}`;
+    const scaleLabel = degree ? ` · degree ${degree}` : ` · outside ${selectedKey().label} major`;
+    currentDetail.textContent = `${frequency.toFixed(1)} Hz · ${tuning}${concertLabel}${scaleLabel}`;
   }
 
   function resetCurrent() {
@@ -459,6 +519,14 @@ export function PitchTrace({ main, onCleanup }) {
     if (lastFrequency) updateCurrent(lastFrequency);
     drawGraph();
   });
+  keySelect.addEventListener('change', () => {
+    s.key = keySelect.value;
+    store.set('pitch-trace.key', s.key);
+    updateScaleSummary();
+    canvas.setAttribute('aria-label', graphAriaLabel());
+    if (lastFrequency) updateCurrent(lastFrequency);
+    drawGraph();
+  });
   a4Select.addEventListener('change', () => {
     s.a4 = Number(a4Select.value);
     store.set('tuner.a4', s.a4);
@@ -483,6 +551,7 @@ export function PitchTrace({ main, onCleanup }) {
     drawGraph();
   });
 
+  updateScaleSummary();
   sizeCanvas();
   window.addEventListener('resize', sizeCanvas);
   onCleanup(() => {

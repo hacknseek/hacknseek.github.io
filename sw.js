@@ -1,10 +1,10 @@
-const VERSION = 'hns-v31';
+const VERSION = 'hns-v32';
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
   './css/styles.css',
-  './js/main.js?v=2.1.1',
+  './js/main.js?v=2.1.2',
   './js/dom.js',
   './js/pitch.js',
   './js/icons.js',

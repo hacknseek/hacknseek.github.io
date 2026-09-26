@@ -190,6 +190,9 @@ const fs = require('node:fs');
 
     await navigate('pitch-trace');
     await page.getByRole('combobox',{name:'Transpose detected notes'}).selectOption('2');
+    assert.equal(await page.getByRole('combobox',{name:'Major key'}).locator('option').count(),12);
+    await page.getByRole('combobox',{name:'Major key'}).selectOption('G');
+    assert.match(await page.locator('.trace-scale-summary').textContent(),/Gold rows · G major1 G · 2 A · 3 B · 4 C · 5 D · 6 E · 7 F♯/);
     await page.evaluate(() => {
       navigator.mediaDevices.getUserMedia = async () => {
         window.traceAudio = new AudioContext();
@@ -207,6 +210,7 @@ const fs = require('node:fs');
     await page.getByRole('button',{name:'Start listening',exact:true}).click();
     await page.waitForFunction(() => document.querySelector('.trace-current-note').textContent === 'B4');
     assert.match(await page.locator('.trace-current-detail').textContent(),/concert A4/);
+    assert.match(await page.locator('.trace-current-detail').textContent(),/degree 3/);
     await page.getByRole('button',{name:'One octave',exact:true}).click();
     assert.equal(await page.getByRole('button',{name:'One octave',exact:true}).getAttribute('aria-pressed'),'true');
     assert.match(await page.locator('.pitch-canvas').getAttribute('aria-label'),/one-octave detail view/);

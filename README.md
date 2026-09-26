@@ -18,8 +18,9 @@ hosted on GitHub Pages.
   window. Natural-note rows span C2–B6, octaves have distinct colors, and the
   display can be transposed by ±12 semitones. Switch to the one-octave detail
   view to fold every octave onto C–B, with chromatic guide lines and highlighted
-  ±5-cent in-tune bands. A4 reference and sensitivity are configurable; audio
-  remains on the device.
+  ±5-cent in-tune bands. Choose any of the 12 major keys to highlight its seven
+  scale tones and show the detected note's scale degree. A4 reference and
+  sensitivity are configurable; audio remains on the device.
 - **Timer** — Countdown and configurable work/rest intervals, including Tabata,
   HIIT, EMOM, and boxing presets. Pause/resume, audio alerts, and vibration where
   supported. Zero-second rest skips directly to the next round.

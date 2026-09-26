@@ -1161,6 +1161,7 @@ canvas.graph {
 .trace-current-detail {
   font: 10px/1.6 var(--mono);
   color: var(--text-dim);
+  max-width: 255px;
 }
 
 .trace-display-options {
@@ -1198,6 +1199,22 @@ canvas.graph {
 .trace-view-hint {
   font: 8px var(--mono);
   color: #527e68;
+}
+
+.trace-scale-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  max-width: 430px;
+  font: 8px/1.5 var(--mono);
+  color: #76683e;
+  text-align: right;
+}
+
+.trace-scale-summary strong {
+  color: #8a651e;
+  font-weight: 650;
 }
 
 .octave-legend {
@@ -1255,7 +1272,7 @@ canvas.graph {
 
 .trace-settings {
   display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
+  grid-template-columns: repeat(4,minmax(0,1fr));
   gap: 12px;
 }
 
@@ -1740,6 +1757,10 @@ canvas.hexic-board {
   .trace-display-options {
     width: 100%;
     align-items: flex-start;
+  }
+  .trace-scale-summary {
+    align-items: flex-start;
+    text-align: left;
   }
   .octave-legend {
     justify-content: flex-start;
