@@ -2,7 +2,7 @@ import { el, store, clamp, viewHead } from '../dom.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const ROUNDS = 100;
-const RUNS = 100;
+const RUN_OPTIONS = [100, 1000, 10000];
 const percent = (value) => `${(value * 100).toFixed(1).replace(/\.0$/, '')}%`;
 const signed = (value) => `${value > 0 ? '+' : ''}${value.toFixed(2)}%`;
 const compact = (value) => `${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value)}%`;
@@ -15,18 +15,21 @@ export function geometricGrowth(p, b, f) {
   return 100 * Math.expm1(p * Math.log1p(b * f) + (1 - p) * Math.log1p(-f));
 }
 
-export function simulateKelly(p, b, f, seed, runs = RUNS, rounds = ROUNDS) {
+// Paths store log(bankroll / starting bankroll), preserving near-zero outcomes.
+export function simulateKelly(p, b, f, seed, runs = RUN_OPTIONS[0], rounds = ROUNDS) {
   let randomState = seed >>> 0;
+  const logWin = Math.log1p(b * f);
+  const logLoss = Math.log1p(-f);
   const random = () => {
     randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0;
     return randomState / 4294967296;
   };
   return Array.from({ length: runs }, () => {
-    let wealth = 1;
-    const path = [0];
+    let logWealth = 0;
+    const path = new Float64Array(rounds + 1);
     for (let round = 1; round <= rounds; round++) {
-      wealth *= random() < p ? 1 + b * f : 1 - f;
-      path.push((wealth - 1) * 100);
+      logWealth += random() < p ? logWin : logLoss;
+      path[round] = logWealth;
     }
     return path;
   });
@@ -83,26 +86,68 @@ function plotSimulations(node, paths) {
   const height = 300;
   const frame = chartFrame(width, height);
   let lo = 0, hi = 0;
-  const logBankroll = (returnPercent) => Math.log1p(returnPercent / 100);
   for (const path of paths) for (const value of path) {
-    const logged = logBankroll(value);
-    lo = Math.min(lo, logged);
-    hi = Math.max(hi, logged);
+    lo = Math.min(lo, value);
+    hi = Math.max(hi, value);
   }
   const pad = Math.max(.15, (hi - lo) * .08);
   const x = scale(0, ROUNDS, frame.left + 6, frame.right - 6);
   const y = scale(lo - pad, hi + pad, frame.bottom - 6, frame.top + 6);
   const yTicks = Array.from({ length: 5 }, (_, i) => lo - pad + (hi - lo + 2 * pad) * i / 4);
-  const lines = paths.map((path) => `<path class="kelly-sim-line" d="${path.map((value, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(logBankroll(value)).toFixed(1)}`).join('')}"/>`).join('');
-  node.innerHTML = `<svg xmlns="${SVG}" viewBox="0 0 ${width} ${height}" role="img" aria-label="One hundred independent simulations, one hundred rounds each, showing cumulative profit or loss relative to initial bankroll on a log bankroll scale.">
-    <text x="${frame.left}" y="18" class="kelly-axis-title">CUMULATIVE RETURN · LOG BANKROLL SCALE</text>
-    ${axis((v) => compact(100 * Math.expm1(v)), true, yTicks, y, frame)}
-    <line x1="${frame.left}" x2="${frame.right}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" class="kelly-zero"/>
-    <rect x="${frame.left}" y="${frame.top}" width="${frame.right - frame.left}" height="${frame.bottom - frame.top}" class="kelly-frame"/>
-    <g class="kelly-sim-lines">${lines}</g>
-    ${axis((v) => String(v), false, [0, 25, 50, 75, 100], x, frame)}
-    <text x="${(frame.left + frame.right) / 2}" y="${height - 8}" text-anchor="middle" class="kelly-axis-title">ROUNDS</text>
-  </svg>`;
+  let canvas = node.querySelector('canvas');
+  if (!canvas) {
+    canvas = el('canvas', { role: 'img' });
+    node.append(canvas);
+  }
+  canvas.setAttribute('aria-label', `${paths.length.toLocaleString()} independent simulations, ${ROUNDS} rounds each, showing cumulative return on a log bankroll scale.`);
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(width * ratio);
+  canvas.height = Math.round(height * ratio);
+  canvas.style.height = `${height}px`;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  const css = getComputedStyle(node);
+  const border = css.getPropertyValue('--border').trim();
+  const dim = css.getPropertyValue('--text-dim').trim();
+  const text = css.getPropertyValue('--text').trim();
+  const accent = css.getPropertyValue('--accent').trim();
+  const mono = css.getPropertyValue('--mono').trim();
+  ctx.font = `11px ${mono}`;
+  ctx.textAlign = 'right';
+  ctx.fillStyle = dim;
+  ctx.strokeStyle = border;
+  ctx.lineWidth = .7;
+  for (const tick of yTicks) {
+    const yy = y(tick);
+    ctx.beginPath(); ctx.moveTo(frame.left, yy); ctx.lineTo(frame.right, yy); ctx.stroke();
+    ctx.fillText(compact(100 * Math.expm1(tick)), frame.left - 9, yy + 4);
+  }
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = paths.length === 100 ? 1.25 : .8;
+  ctx.globalAlpha = paths.length === 100 ? .16 : paths.length === 1000 ? .045 : .009;
+  const xx = Array.from({ length: ROUNDS + 1 }, (_, i) => x(i));
+  for (const path of paths) {
+    ctx.beginPath();
+    ctx.moveTo(xx[0], y(path[0]));
+    for (let i = 1; i <= ROUNDS; i++) ctx.lineTo(xx[i], y(path[i]));
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = dim;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(frame.left, y(0)); ctx.lineTo(frame.right, y(0)); ctx.stroke();
+  ctx.strokeStyle = border;
+  ctx.strokeRect(frame.left, frame.top, frame.right - frame.left, frame.bottom - frame.top);
+  ctx.fillStyle = dim;
+  ctx.textAlign = 'center';
+  for (const tick of [0, 25, 50, 75, 100]) ctx.fillText(String(tick), x(tick), frame.bottom + 20);
+  ctx.fillStyle = text;
+  ctx.font = `10px ${mono}`;
+  ctx.textAlign = 'left';
+  ctx.fillText('CUMULATIVE RETURN · LOG SCALE', frame.left, 18);
+  ctx.textAlign = 'center';
+  ctx.fillText('ROUNDS', (frame.left + frame.right) / 2, height - 8);
+  canvas.dataset.renderedPaths = String(paths.length);
 }
 
 export function KellyLab({ main, onCleanup }) {
@@ -112,6 +157,7 @@ export function KellyLab({ main, onCleanup }) {
     b: clamp(Number.isFinite(saved.b) ? saved.b : 1, .25, 5),
     f: clamp(Number.isFinite(saved.f) ? saved.f : .2, 0, .95),
     seed: Number.isInteger(saved.seed) ? saved.seed >>> 0 : Math.floor(Math.random() * 4294967296),
+    runs: RUN_OPTIONS.includes(Number(saved.runs)) ? Number(saved.runs) : RUN_OPTIONS[0],
   };
   main.append(viewHead('Kelly Lab', 'Stake sizing and probability'));
 
@@ -134,12 +180,14 @@ export function KellyLab({ main, onCleanup }) {
   const simPlot = el('div', { className: 'kelly-chart', 'data-kelly-chart': 'simulations' });
   const growthResult = el('p', { className: 'kelly-result', role: 'status', 'aria-live': 'polite' });
   const simResult = el('p', { className: 'kelly-result', role: 'status', 'aria-live': 'polite' });
-  const rerun = el('button', { className: 'btn', type: 'button' }, 'Run 100 new paths');
+  const runChoice = el('select', { id: 'kelly-runs', value: String(state.runs) }, RUN_OPTIONS.map((runs) => el('option', { value: String(runs) }, runs.toLocaleString())));
+  const runLabel = el('label', { className: 'kelly-run-choice', htmlFor: 'kelly-runs' }, ['Simulations ', runChoice]);
+  const rerun = el('button', { className: 'btn', type: 'button' }, 'Rerun paths');
   main.append(
     el('p', { className: 'kelly-intro' }, 'Explore the fraction that maximizes long-run compounded growth, then see how uncertain the next 100 rounds can be.'),
     controls, presets,
     el('section', { className: 'kelly-section' }, [el('h3', {}, 'Long-run growth'), growthResult, growthPlot]),
-    el('section', { className: 'kelly-section' }, [el('div', { className: 'kelly-section-head' }, [el('h3', {}, '100 paths · 100 rounds each'), rerun]), simResult, simPlot]),
+    el('section', { className: 'kelly-section' }, [el('div', { className: 'kelly-section-head' }, [el('h3', {}, 'Monte Carlo · 100 rounds per path'), el('div', { className: 'kelly-sim-actions' }, [runLabel, rerun])]), simResult, simPlot]),
     el('p', { className: 'kelly-note' }, 'Each round risks the selected fraction of the current bankroll. A win earns the net odds; a loss loses the stake. The simulation uses a log bankroll scale so paths with very different returns remain visible. These independent paths are not a forecast.'),
   );
 
@@ -151,15 +199,18 @@ export function KellyLab({ main, onCleanup }) {
     chance.input.value = state.p * 100;
     odds.input.value = state.b;
     stake.input.value = state.f * 100;
+    runChoice.value = String(state.runs);
     chance.output.textContent = percent(state.p);
     odds.output.textContent = `${state.b.toFixed(2)}×`;
     stake.output.textContent = percent(state.f);
     const best = kellyFraction(state.p, state.b);
     growthResult.textContent = `◆ Kelly fraction ${percent(best)}  ·  ● Selected fraction ${percent(state.f)}  ·  Geometric growth ${signed(geometricGrowth(state.p, state.b, state.f))} per round`;
     plotGrowth(growthPlot, state.p, state.b, state.f);
-    const paths = simulateKelly(state.p, state.b, state.f, state.seed);
+    const paths = simulateKelly(state.p, state.b, state.f, state.seed, state.runs);
     const final = paths.map((path) => path[ROUNDS]).sort((a, b) => a - b);
-    simResult.textContent = `Median ending return ${compact((final[49] + final[50]) / 2)} across 100 runs`;
+    const middle = state.runs / 2;
+    const medianReturn = 50 * (Math.expm1(final[middle - 1]) + Math.expm1(final[middle]));
+    simResult.textContent = `Median ending return ${compact(medianReturn)} across ${state.runs.toLocaleString()} runs`;
     plotSimulations(simPlot, paths);
   }
   function schedule() {
@@ -174,6 +225,7 @@ export function KellyLab({ main, onCleanup }) {
   }
   full.addEventListener('click', () => { state.f = kellyFraction(state.p, state.b); persist(); schedule(); });
   half.addEventListener('click', () => { state.f = kellyFraction(state.p, state.b) / 2; persist(); schedule(); });
+  runChoice.addEventListener('change', () => { state.runs = Number(runChoice.value); persist(); schedule(); });
   rerun.addEventListener('click', () => { state.seed = Math.floor(Math.random() * 4294967296); persist(); schedule(); });
   const observer = new ResizeObserver(schedule);
   observer.observe(growthPlot);

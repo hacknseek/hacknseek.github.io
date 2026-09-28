@@ -30,8 +30,9 @@ hosted on GitHub Pages.
   a new reading. Send the result to the metronome (within its 30–260 BPM range).
 - **Hexic** — Rotate connected groups of three tiles to form clusters, flowers,
   stars, and pearls. Includes hints, keyboard controls, and a local best score.
-- **Kelly Lab** — Explore Kelly stake sizing, long-run geometric growth, and 100
-  independent 100-round bankroll simulations. Runs locally and works offline.
+- **Kelly Lab** — Explore Kelly stake sizing, long-run geometric growth, and
+  100, 1,000, or 10,000 independent 100-round bankroll simulations. Runs locally
+  and works offline.
 
 The home collection filters tools by Music, Focus, and Play. Each tool has direct
 navigation to the others. The visual system uses warm paper tones, restrained

@@ -235,17 +235,26 @@ const fs = require('node:fs');
     console.log('PASS Hexic hint and rotation');
 
     await navigate('kelly');
-    assert.equal(await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').count(),100);
-    const initialPath = await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').first().getAttribute('d');
-    await page.getByRole('button',{name:'Run 100 new paths'}).click();
-    await page.waitForFunction(previous => document.querySelector('[data-kelly-chart="simulations"] .kelly-sim-line').getAttribute('d') !== previous, initialPath);
+    const canvas = page.locator('[data-kelly-chart="simulations"] canvas');
+    assert.equal(await canvas.getAttribute('data-rendered-paths'),'100');
+    const initialImage = await canvas.evaluate(node => node.toDataURL());
+    await page.getByRole('button',{name:'Rerun paths'}).click();
+    await page.waitForFunction(previous => document.querySelector('[data-kelly-chart="simulations"] canvas').toDataURL() !== previous, initialImage);
+    for (const runs of ['1000','10000']) {
+      await page.getByRole('combobox',{name:'Simulations'}).selectOption(runs);
+      await page.waitForFunction(expected => document.querySelector('[data-kelly-chart="simulations"] canvas').dataset.renderedPaths === expected, runs);
+      assert.match(await page.locator('.kelly-section').last().locator('.kelly-result').textContent(),new RegExp(Number(runs).toLocaleString()));
+    }
     await page.getByRole('button',{name:'Half Kelly'}).click();
     await page.waitForFunction(() => document.querySelector('#kelly-f').value === '10');
     await navigate('timer');
     await navigate('kelly');
     assert.equal(await page.locator('#kelly-f').inputValue(),'10');
-    assert.equal(await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').count(),100);
-    console.log('PASS Kelly fraction controls, 100 Monte Carlo paths, rerun, and persistence');
+    assert.equal(await page.getByRole('combobox',{name:'Simulations'}).inputValue(),'10000');
+    assert.equal(await canvas.getAttribute('data-rendered-paths'),'10000');
+    await page.getByRole('combobox',{name:'Simulations'}).selectOption('100');
+    await page.waitForFunction(() => document.querySelector('[data-kelly-chart="simulations"] canvas').dataset.renderedPaths === '100');
+    console.log('PASS Kelly fraction controls, 100/1,000/10,000 Monte Carlo paths, rerun, and persistence');
 
     for(const width of [320,390,768,1440]) {
       await page.setViewportSize({width,height:900});
