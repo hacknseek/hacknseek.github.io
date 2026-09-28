@@ -7,9 +7,10 @@ import { PitchTrace } from './apps/pitch-trace.js?v=2.1.4';
 import { TimerApp } from './apps/timer.js';
 import { TapTempo } from './apps/tap-tempo.js';
 import { Hexic } from './apps/hexic.js?v=2.0.1';
+import { KellyLab } from './apps/kelly.js?v=2.2.0';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '2.1.4';
+const APP_VERSION = '2.2.0';
 const APPS = [
   { id: 'metronome', name: 'Metronome', tagline: 'Make every beat count.', desc: 'A steady pulse for finding your rhythm. Set the pace, pick a sound, and settle into practice.', category: 'music', meta: '30–260 BPM', icon: icons.metro, render: Metronome },
   { id: 'tuner', name: 'Tuner', tagline: 'A little more in tune.', desc: 'Find the right note with a precise chromatic tuner.', category: 'music', meta: 'CHROMATIC · MIC INPUT', icon: icons.tuner, render: Tuner },
@@ -17,6 +18,7 @@ const APPS = [
   { id: 'timer', name: 'Timer', tagline: 'Give your time a rhythm.', desc: 'Make room for focus, a workout, or a well-earned break.', category: 'focus', meta: 'COUNTDOWN + INTERVALS', icon: icons.timer, render: TimerApp },
   { id: 'tap-tempo', name: 'Tap Tempo', tagline: 'Feel it. Tap it. Find it.', desc: 'That beat in your head? Put a number to it.', category: 'music', meta: 'TAP TO FIND YOUR BPM', icon: icons.tap, render: TapTempo },
   { id: 'hexic', name: 'Hexic', tagline: 'A fresh angle on downtime.', desc: 'Rotate, connect, and get lost in a little color.', category: 'play', meta: 'A SMALL BRAIN BREAK', icon: icons.hex, render: Hexic },
+  { id: 'kelly', name: 'Kelly Lab', tagline: 'Find the balance between edge and risk.', desc: 'Explore Kelly sizing and 100 simulated bankroll paths.', category: 'play', meta: 'PROBABILITY · 100 PATHS', icon: icons.kelly, render: KellyLab },
 ];
 const root = document.getElementById('app');
 let cleanups = [];

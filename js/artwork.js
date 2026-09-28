@@ -94,4 +94,12 @@ export const artwork = {
     ${hex(154,134,29,'#b9cedf')}${hex(206,134,29,'#c6b9d7')}
     <path d="m168 88 8 8 15-17" stroke="#8d7448" stroke-width="1.5" stroke-linecap="round"/>
   `),
+  kelly: svg(`
+    <path d="M32 144h300M32 100h300M32 56h300" stroke="#bdc6b5" stroke-width="1" opacity=".65"/>
+    <path d="M44 145 72 133 100 112 128 82 156 55 184 39 212 38 240 53 268 82 296 118 324 148" stroke="#50766d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 145 72 139 100 126 128 112 156 98 184 94 212 91 240 82 268 86 296 65 324 55" stroke="#d65c39" stroke-width="1.5" opacity=".65" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 145 72 140 100 135 128 116 156 121 184 108 212 96 240 89 268 67 296 73 324 58" stroke="#d65c39" stroke-width="1.5" opacity=".35" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="212" cy="38" r="5" fill="#50766d"/>
+    <text x="218" y="27" font-family="monospace" font-size="11" fill="#50766d" letter-spacing="2">f*</text>
+  `),
 };

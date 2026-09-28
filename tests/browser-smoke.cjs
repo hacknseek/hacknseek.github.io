@@ -52,14 +52,15 @@ const fs = require('node:fs');
       calls: ['resume-interrupted', 'suspend-running', 'resume-running', 'suspend-running'],
     });
     console.log('PASS interrupted Web Audio recovery, restart, suspend, and timeout handling');
-    assert.equal(await page.locator('.tool-card').count(),6);
+    assert.equal(await page.locator('.tool-card').count(),7);
     await page.getByRole('button',{name:'Music',exact:true}).click();
     assert.equal(await page.locator('.tool-card').count(),4);
     await page.getByRole('button',{name:'Focus',exact:true}).click();
     assert.equal(await page.locator('.tool-card').count(),1);
     assert.equal(await page.locator('.tool-card h3').textContent(),'Timer');
     await page.getByRole('button',{name:'Play',exact:true}).click();
-    assert.equal(await page.locator('.tool-card h3').textContent(),'Hexic');
+    assert.equal(await page.locator('.tool-card').count(),2);
+    assert.deepEqual(await page.locator('.tool-card h3').allTextContents(),['Hexic','Kelly Lab']);
     await page.getByRole('button',{name:'All tools',exact:true}).click();
     await page.getByRole('button',{name:'Install the app'}).click();
     await page.getByRole('dialog').waitFor();
@@ -233,9 +234,22 @@ const fs = require('node:fs');
     await snap('hexic-desktop');
     console.log('PASS Hexic hint and rotation');
 
+    await navigate('kelly');
+    assert.equal(await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').count(),100);
+    const initialPath = await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').first().getAttribute('d');
+    await page.getByRole('button',{name:'Run 100 new paths'}).click();
+    await page.waitForFunction(previous => document.querySelector('[data-kelly-chart="simulations"] .kelly-sim-line').getAttribute('d') !== previous, initialPath);
+    await page.getByRole('button',{name:'Half Kelly'}).click();
+    await page.waitForFunction(() => document.querySelector('#kelly-f').value === '10');
+    await navigate('timer');
+    await navigate('kelly');
+    assert.equal(await page.locator('#kelly-f').inputValue(),'10');
+    assert.equal(await page.locator('[data-kelly-chart="simulations"] .kelly-sim-line').count(),100);
+    console.log('PASS Kelly fraction controls, 100 Monte Carlo paths, rerun, and persistence');
+
     for(const width of [320,390,768,1440]) {
       await page.setViewportSize({width,height:900});
-      for(const route of ['', 'metronome','tuner','pitch-trace','timer','tap-tempo','hexic']) {
+      for(const route of ['', 'metronome','tuner','pitch-trace','timer','tap-tempo','hexic','kelly']) {
         await navigate(route);
         const dims = await page.evaluate(() => ({scroll:document.documentElement.scrollWidth,viewport:innerWidth}));
         assert.ok(dims.scroll <= dims.viewport,`${route||'home'} overflows at ${width}: ${JSON.stringify(dims)}`);
@@ -255,12 +269,12 @@ const fs = require('node:fs');
     await context.setOffline(true);
     await page.goto(base,{waitUntil:'load'});
     await page.getByRole('link',{name:'Open Metronome',exact:true}).waitFor();
-    for(const route of ['metronome','tuner','pitch-trace','timer','tap-tempo','hexic']) {
+    for(const route of ['metronome','tuner','pitch-trace','timer','tap-tempo','hexic','kelly']) {
       await page.goto(`${base}/#${route}`,{waitUntil:'load'});
       await page.locator('.view-head h2').waitFor();
     }
     assert.equal(await page.evaluate(async () => (await caches.keys()).filter(key => key.startsWith('hns-')).length),1);
-    console.log('PASS full offline reload and all six tools');
+    console.log('PASS full offline reload and all seven tools');
     assert.deepEqual(errors,[]);
     console.log('PASS no uncaught browser errors');
   } finally { await browser.close(); }

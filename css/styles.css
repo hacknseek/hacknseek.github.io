@@ -404,6 +404,11 @@ h2 {
   --card-border: #dfdfd7;
   --card-ink: #73796d;
 }
+.tool-kelly {
+  --card-bg: #eaf1ec;
+  --card-border: #d4e3d9;
+  --card-ink: #50766d;
+}
 
 .card-top {
   display: flex;
@@ -1876,4 +1881,55 @@ canvas.hexic-board {
   .view-timer input[type=number] {
     width: 100%;
   }
+}
+
+/* Kelly Lab */
+.kelly-intro, .kelly-note {
+  color: var(--text-dim);
+  max-width: 700px;
+}
+.kelly-intro { font-size: 14px; }
+.kelly-note { font-size: 12px; }
+.kelly-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.kelly-control { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.kelly-control-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px 10px; font-size: 12px; color: var(--text-dim); }
+.kelly-control-value { color: var(--text); font-family: var(--mono); font-weight: 650; font-variant-numeric: tabular-nums; }
+.kelly-slider { width: 100%; accent-color: var(--accent-2); cursor: pointer; }
+.kelly-actions, .kelly-section-head { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.kelly-section-head { justify-content: space-between; }
+.kelly-section {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  min-width: 0;
+}
+.kelly-section h3 { font-size: 17px; font-weight: 650; }
+.kelly-result { margin: 6px 0 10px; color: var(--text-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.kelly-chart { width: 100%; min-width: 0; }
+.kelly-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.kelly-chart svg text { fill: var(--text-dim); font: 11px var(--mono); }
+.kelly-chart svg .kelly-axis-title { fill: var(--text); font-size: 10px; letter-spacing: .05em; }
+.kelly-chart svg .kelly-grid { stroke: var(--border); stroke-width: .7; }
+.kelly-chart svg .kelly-zero { stroke: var(--text-dim); stroke-width: 1; }
+.kelly-chart svg .kelly-frame { fill: none; stroke: var(--border); stroke-width: 1; }
+.kelly-chart svg .kelly-growth-line { fill: none; stroke: var(--accent-2); stroke-width: 2.5; stroke-linejoin: round; }
+.kelly-chart svg .kelly-optimum-line { stroke: var(--text-dim); stroke-width: 1; stroke-dasharray: 4 4; }
+.kelly-chart svg .kelly-optimum-mark { fill: var(--accent-2); }
+.kelly-chart svg .kelly-selected-mark { fill: var(--text); }
+.kelly-chart svg .kelly-sim-line { fill: none; stroke: var(--accent); stroke-opacity: .16; stroke-width: 1.25; stroke-linejoin: round; }
+@media(max-width:680px) {
+  .kelly-controls { grid-template-columns: 1fr; gap: 18px; padding: 18px; }
+  .kelly-control { gap: 6px; }
+  .kelly-section { padding: 15px 10px 12px; }
+  .kelly-section-head .btn { margin-top: 3px; }
+  .kelly-chart svg .kelly-axis-title { font-size: 9px; letter-spacing: 0; }
 }
