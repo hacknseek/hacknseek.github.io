@@ -9,7 +9,7 @@ import { Hexic } from './apps/hexic.js?v=2.0.1';
 import { KellyLab } from './apps/kelly.js?v=2.2.1';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '2.2.2';
+const APP_VERSION = '2.2.3';
 const APPS = [
   { id: 'metronome', name: 'Metronome', tagline: 'Make every beat count.', desc: 'A steady pulse for finding your rhythm. Set the pace, pick a sound, and settle into practice.', category: 'music', meta: '30–260 BPM', icon: icons.metro, render: Metronome },
   { id: 'tuner', name: 'Tuner', tagline: 'A little more in tune.', desc: 'Find the right note with a precise chromatic tuner.', category: 'music', meta: 'CHROMATIC · MIC INPUT', icon: icons.tuner, render: Tuner },

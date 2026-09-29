@@ -62,6 +62,30 @@ export function audioContext() {
   return new AC();
 }
 
+// On iOS, the default Web Audio session can be muted by the Ring/Silent
+// switch even while AudioContext.state is "running". Scope playback mode to
+// the active tool and restore it before a microphone tool takes over.
+export function playbackAudioSession() {
+  let session;
+  let previous;
+  try {
+    session = navigator.audioSession;
+    if (!session) return () => {};
+    previous = session.type;
+    session.type = 'playback';
+  } catch {
+    return () => {};
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    try {
+      if (session.type === 'playback') session.type = previous;
+    } catch {}
+  };
+}
+
 function waitForAudioAction(action, timeout) {
   let timer = 0;
   return Promise.race([

@@ -1,5 +1,5 @@
 import {
-  el, $$, store, clamp, viewHead, audioContext, resumeAudioContext, suspendAudioContext, toast,
+  el, $$, store, clamp, viewHead, audioContext, playbackAudioSession, resumeAudioContext, suspendAudioContext, toast,
 } from '../dom.js';
 import { icons } from '../icons.js';
 
@@ -94,6 +94,7 @@ export function Metronome({ main, onCleanup }) {
   let voices = null;
   let running = false;
   let starting = false;
+  let releaseAudioSession = () => {};
   let disposed = false;
   let beat = 0;
   let nextTime = 0;
@@ -225,11 +226,16 @@ export function Metronome({ main, onCleanup }) {
   async function start() {
     if (running || starting || disposed) return;
     starting = true;
-    if (audioNeedsReset || ctx?.state === 'closed' || ctx?.state === 'interrupted') resetAudio();
-    ensureAudio();
-    const ready = await resumeAudioContext(ctx);
+    releaseAudioSession = playbackAudioSession();
+    let ready = false;
+    try {
+      if (audioNeedsReset || ctx?.state === 'closed' || ctx?.state === 'interrupted') resetAudio();
+      ensureAudio();
+      ready = await resumeAudioContext(ctx);
+    } catch {}
     starting = false;
     if (disposed || !ready || running) {
+      releaseAudioSession();
       if (!disposed && !ready) {
         audioNeedsReset = true;
         toast('Audio was interrupted. Tap Play to try again.', 3500);
@@ -250,6 +256,7 @@ export function Metronome({ main, onCleanup }) {
     if (!running) return;
     gen++;
     running = false;
+    releaseAudioSession();
     clearTimeout(loopId);
     playBtn.classList.remove('is-on');
     playBtn.setAttribute('aria-label', 'Play');
@@ -369,5 +376,6 @@ export function Metronome({ main, onCleanup }) {
     running = false;
     clearTimeout(loopId);
     resetAudio();
+    releaseAudioSession();
   });
 }

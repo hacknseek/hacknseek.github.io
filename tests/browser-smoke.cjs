@@ -69,6 +69,24 @@ const fs = require('node:fs');
     console.log('PASS collection filters and installation help');
 
     await navigate('metronome');
+    // Desktop browsers cannot reproduce the iPhone silent switch. Model its
+    // session API to verify playback selection and microphone-safe cleanup.
+    await page.evaluate(async () => {
+      const { playbackAudioSession } = await import('./js/dom.js');
+      Object.defineProperty(navigator, 'audioSession', { configurable: true, value: undefined });
+      playbackAudioSession()();
+      Object.defineProperty(navigator, 'audioSession', {
+        configurable: true,
+        get() { throw new Error('Unavailable audio session'); },
+      });
+      playbackAudioSession()();
+      Object.defineProperty(navigator, 'audioSession', {
+        configurable: true,
+        value: { get type() { return 'auto'; }, set type(value) { throw new Error('Unsupported'); } },
+      });
+      playbackAudioSession()();
+      Object.defineProperty(navigator, 'audioSession', { configurable: true, value: { type: 'auto' } });
+    });
     await page.getByRole('button',{name:'Increase tempo'}).click();
     assert.equal(await page.locator('.big-number').textContent(),'121');
     await page.getByRole('button',{name:'Allegro · 132'}).click();
@@ -80,9 +98,17 @@ const fs = require('node:fs');
       await page.getByRole('combobox',{name:'Sound',exact:true}).selectOption(sound);
       await page.getByRole('button',{name:'Play',exact:true}).click();
       await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
+      assert.equal(await page.evaluate(() => navigator.audioSession.type), 'playback');
       await page.waitForTimeout(100);
       await page.getByRole('button',{name:'Pause',exact:true}).click();
+      assert.equal(await page.evaluate(() => navigator.audioSession.type), 'auto');
     }
+    await page.getByRole('button',{name:'Play',exact:true}).click();
+    await page.getByRole('button',{name:'Pause',exact:true}).waitFor();
+    await page.evaluate(() => { location.hash = '#tuner'; });
+    await page.getByRole('heading', { name: 'Tuner', exact: true }).waitFor();
+    assert.equal(await page.evaluate(() => navigator.audioSession.type), 'auto');
+    await navigate('metronome');
     await page.reload({waitUntil:'networkidle'});
     assert.equal(await page.locator('.big-number').textContent(),'137');
     await snap('metronome-desktop');
