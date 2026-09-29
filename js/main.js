@@ -1,6 +1,5 @@
 import { el, toast } from './dom.js';
 import { icons } from './icons.js';
-import { artwork } from './artwork.js';
 import { Metronome } from './apps/metronome.js';
 import { Tuner } from './apps/tuner.js';
 import { PitchTrace } from './apps/pitch-trace.js?v=2.1.4';
@@ -10,7 +9,7 @@ import { Hexic } from './apps/hexic.js?v=2.0.1';
 import { KellyLab } from './apps/kelly.js?v=2.2.1';
 
 const GITHUB_URL = 'https://github.com/hacknseek/hacknseek.github.io';
-const APP_VERSION = '2.2.1';
+const APP_VERSION = '2.2.2';
 const APPS = [
   { id: 'metronome', name: 'Metronome', tagline: 'Make every beat count.', desc: 'A steady pulse for finding your rhythm. Set the pace, pick a sound, and settle into practice.', category: 'music', meta: '30–260 BPM', icon: icons.metro, render: Metronome },
   { id: 'tuner', name: 'Tuner', tagline: 'A little more in tune.', desc: 'Find the right note with a precise chromatic tuner.', category: 'music', meta: 'CHROMATIC · MIC INPUT', icon: icons.tuner, render: Tuner },
@@ -101,18 +100,8 @@ async function installApp() {
 function mainElement() { return document.getElementById('main'); }
 
 function hub(main) {
-  const hero = el('section', { className: 'hero' }, [
-    el('div', { className: 'hero-copy' }, [
-      el('div', { className: 'eyebrow' }, [el('span', { className: 'mini-cross', 'aria-hidden': 'true' }, '+'), ' SMALL TOOLS. OPEN POSSIBILITIES.']),
-      el('h1', {}, ['Less noise.', el('br'), 'More ', el('span', { className: 'flow-word' }, 'flow.' )]),
-      el('p', {}, 'Find your rhythm. Fine-tune your focus. A thoughtful collection of everyday tools, right here in your browser.'),
-      el('button', { className: 'btn primary hero-cta', onclick: () => scrollToSection('collection') }, ['Find your tool', el('span', { 'aria-hidden': 'true' }, '↘')]),
-      el('div', { className: 'hero-note' }, 'NO SIGN-UP. NO DISTRACTIONS. JUST OPEN & GO.'),
-    ]),
-    el('div', { className: 'hero-art', 'aria-hidden': 'true', innerHTML: artwork.hero }),
-  ]);
   const grid = el('div', { className: 'apps' });
-  const count = el('span', { className: 'collection-count', role: 'status', 'aria-live': 'polite' }, `${String(APPS.length).padStart(2, '0')} tools, countless possibilities`);
+  const count = el('span', { className: 'collection-count', role: 'status', 'aria-live': 'polite' }, `${APPS.length} tools`);
   const filters = el('div', { className: 'filters', role: 'group', 'aria-label': 'Filter tools' });
   let active = 'all';
   function showTools(category) {
@@ -120,26 +109,22 @@ function hub(main) {
     const filtered = APPS.filter((app) => category === 'all' || app.category === category);
     grid.classList.toggle('is-filtered', category !== 'all');
     grid.replaceChildren(...filtered.map((app) => el('a', { className: `tool-card tool-${app.id}`, href: '#' + app.id, 'aria-label': `Open ${app.name}` }, [
-      el('div', { className: 'card-top' }, [
-        el('span', { className: 'tool-kind' }, [el('span', { className: 'tool-small-icon', 'aria-hidden': 'true', innerHTML: app.icon }), app.category === 'music' ? 'MAKE MUSIC' : app.category === 'focus' ? 'FIND FOCUS' : 'TAKE A BREAK']),
-        el('span', { className: 'card-arrow', 'aria-hidden': 'true' }, '↗'),
-      ]),
-      el('div', { className: 'tool-art', 'aria-hidden': 'true', innerHTML: artwork[app.id] }),
-      el('div', { className: 'card-copy' }, [el('h3', {}, app.name), el('p', {}, app.desc)]),
-      el('div', { className: 'card-meta' }, [el('span', {}, app.meta), el('span', {}, String(APPS.indexOf(app) + 1).padStart(2, '0'))]),
+      el('span', { className: 'launcher-icon', 'aria-hidden': 'true', innerHTML: app.icon }),
+      el('div', { className: 'launcher-copy' }, [el('h3', {}, app.name), el('p', {}, app.tagline)]),
+      el('span', { className: 'launcher-arrow', 'aria-hidden': 'true' }, '↗'),
     ])));
     filters.querySelectorAll('button').forEach((button) => {
       const selected = button.dataset.category === active;
       button.classList.toggle('is-on', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
-    count.textContent = `${String(filtered.length).padStart(2, '0')} ${filtered.length === 1 ? 'tool' : 'tools'}, countless possibilities`;
+    count.textContent = `${filtered.length} ${filtered.length === 1 ? 'tool' : 'tools'}`;
   }
   for (const [category, label] of [['all', 'All tools'], ['music', 'Music'], ['focus', 'Focus'], ['play', 'Play']]) {
     filters.append(el('button', { className: 'filter-btn', 'data-category': category, onclick: () => showTools(category) }, label));
   }
   const collection = el('section', { className: 'collection', id: 'collection', 'aria-labelledby': 'collection-heading' }, [
-    el('div', { className: 'section-heading' }, [el('div', {}, [el('span', { className: 'eyebrow' }, 'THE COLLECTION'), el('h2', { id: 'collection-heading' }, 'Good things. Small packages.')]), count]),
+    el('div', { className: 'section-heading' }, [el('div', {}, [el('h1', { id: 'collection-heading' }, 'Choose your tool.'), el('p', { className: 'muted' }, 'Open an app and get started.')]), count]),
     filters, grid,
   ]);
   const approach = el('section', { className: 'approach', id: 'approach' }, [
@@ -153,7 +138,7 @@ function hub(main) {
     el('div', { className: 'row' }, [el('span', { className: 'install-icon', 'aria-hidden': 'true', innerHTML: icons.install }), el('div', {}, [el('h3', {}, 'Your pocket-sized creative companion.'), el('p', {}, 'Keep the whole collection one tap away.')])]),
     el('button', { className: 'btn', id: 'installBtn', onclick: installApp }, ['Install the app', el('span', { 'aria-hidden': 'true' }, '↗')]),
   ]);
-  main.append(hero, collection, approach, install);
+  main.append(collection, approach, install);
   showTools('all');
 }
 function parseRoute() {

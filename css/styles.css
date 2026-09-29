@@ -1937,3 +1937,37 @@ canvas.hexic-board {
   .kelly-sim-actions { width: 100%; }
   .kelly-chart svg .kelly-axis-title { font-size: 9px; letter-spacing: 0; }
 }
+
+/* Keep the app launcher above the introductory content. */
+.hub .collection { padding-top: 28px; }
+.collection h1 { font-size: 30px; line-height: 1.25; letter-spacing: -1px; font-weight: 600; }
+.collection .section-heading p { margin-top: 5px; font-size: 13px; }
+.collection .filters { margin: 18px 0 16px; padding-bottom: 12px; }
+.collection .filter-btn { min-height: 44px; }
+.collection .apps { gap: 12px; align-items: stretch; }
+.collection .tool-card {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 12px;
+  grid-column: auto;
+  padding: 18px;
+  min-height: 102px;
+}
+.launcher-icon { color: var(--card-ink); }
+.launcher-icon svg { width: 28px; height: 28px; }
+.launcher-copy h3 { font-size: 18px; line-height: 1.3; font-weight: 600; }
+.launcher-copy p { margin-top: 4px; font-size: 12px; line-height: 1.5; color: var(--text-dim); }
+.launcher-arrow { color: var(--card-ink); }
+@media(max-width:900px) {
+  .collection .apps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media(max-width:680px) {
+  .hub .collection { padding-top: 20px; }
+  .collection h1 { font-size: 26px; }
+  .collection .apps { gap: 10px; }
+  .collection .tool-card { grid-template-columns: 24px minmax(0, 1fr); gap: 9px; padding: 12px; min-height: 68px; }
+  .launcher-icon svg { width: 24px; height: 24px; }
+  .launcher-copy h3 { font-size: 15px; }
+  .launcher-copy p, .launcher-arrow { display: none; }
+}
